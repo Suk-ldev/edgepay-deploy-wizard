@@ -3,6 +3,10 @@ main = "src/index.js"
 compatibility_date = "2026-08-16"
 workers_dev = true
 
+routes = [
+  { pattern = "deploy.imsuk.eu.org", custom_domain = true }
+]
+
 # 向导自己没有任何持久化绑定：不碰 D1、不碰 KV，纯无状态请求/响应。
 [assets]
 directory = "./public"

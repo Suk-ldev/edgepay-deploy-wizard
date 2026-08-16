@@ -1,0 +1,15 @@
+{
+  "name": "edgepay-deploy-wizard",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/index.js && node --check src/router.js && node --check src/config.js && node --check src/deploy-handler.js && node --check src/verify-token-handler.js && node --check src/lib/cf-client.js && node --check src/lib/cf-token.js && node --check src/lib/cf-d1.js && node --check src/lib/cf-assets.js && node --check src/lib/cf-worker-script.js && node --check src/lib/cf-subdomain.js && node --check src/lib/secret-generator.js && node --check src/lib/sql-splitter.js && node --check src/lib/template-fetcher.js && node --check src/lib/manifest-hash.js && node --check src/lib/errors.js && node --check src/lib/progress-stream.js && node --check public/wizard.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>一键部署 EdgePay</title>
+<link rel="stylesheet" href="/wizard.css" />
+</head>
+<body>
+<div class="page">
+  <header class="brand">
+    <span class="brand-mark">🚀</span>
+    <h1 class="brand-title">一键部署 · EdgePay</h1>
+    <p class="brand-sub">部署到你自己的 Cloudflare 账号</p>
+  </header>
+
+  <ol class="steps" id="steps">
+    <li data-step="1" class="active"><span class="step-dot">1</span><span class="step-text">Cloudflare 凭据</span></li>
+    <li data-step="2"><span class="step-dot">2</span><span class="step-text">部署信息</span></li>
+    <li data-step="3"><span class="step-dot">3</span><span class="step-text">确认并部署</span></li>
+    <li data-step="4"><span class="step-dot">4</span><span class="step-text">完成</span></li>
+  </ol>
+
+  <main class="card">
+
+    <section class="screen active" id="screen-1">
+      <h2>填写 Cloudflare 凭据</h2>
+      <p class="hint">
+        向导只在这次部署请求里临时使用你的 Token 调用 Cloudflare API，不会保存、不会记日志。
+        建议新建一个只带 <code>Account.D1:Edit</code> 和 <code>Account.Workers Scripts:Edit</code>
+        权限的专用 Token，而不是用 Global API Key。
+        <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">去 Cloudflare 建一个 →</a>
+      </p>
+
+      <label class="field">
+        <span>Cloudflare API Token</span>
+        <input type="password" id="cfApiToken" autocomplete="off" placeholder="粘贴你的 API Token" />
+      </label>
+
+      <label class="field">
+        <span>Account ID</span>
+        <input type="text" id="cfAccountId" autocomplete="off" placeholder="Cloudflare 控制台右下角能找到" />
+      </label>
+
+      <p class="error" id="step1-error"></p>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="step1-next">验证并下一步</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-2">
+      <h2>部署信息</h2>
+
+      <label class="field">
+        <span>项目名</span>
+        <input type="text" id="projectName" placeholder="例如 mpay-edge" />
+        <small>同时作为 D1 数据库名和 Worker 脚本名，只能用小写字母、数字和短横线。</small>
+      </label>
+
+      <label class="field">
+        <span>管理员用户名</span>
+        <input type="text" id="adminUsername" value="admin" />
+      </label>
+
+      <label class="field">
+        <span>公开访问地址（可选）</span>
+        <input type="text" id="publicBaseUrl" placeholder="留空则使用生成的 workers.dev 地址" />
+      </label>
+
+      <p class="error" id="step2-error"></p>
+
+      <div class="actions">
+        <button class="btn btn-ghost" data-back>上一步</button>
+        <button class="btn btn-primary" id="step2-next">下一步</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-3">
+      <h2>确认并部署</h2>
+
+      <table class="summary">
+        <tbody>
+          <tr><th>部署平台</th><td>Cloudflare Workers</td></tr>
+          <tr><th>项目名</th><td id="summary-project"></td></tr>
+          <tr><th>管理员用户名</th><td id="summary-admin"></td></tr>
+          <tr><th>Account ID</th><td id="summary-account"></td></tr>
+          <tr><th>API Token</th><td id="summary-token"></td></tr>
+        </tbody>
+      </table>
+
+      <ol class="progress" id="progress-list"></ol>
+
+      <p class="error" id="step3-error"></p>
+
+      <div class="actions">
+        <button class="btn btn-ghost" data-back id="step3-back">上一步</button>
+        <button class="btn btn-primary" id="deploy-btn">开始部署</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-4">
+      <h2>部署完成</h2>
+      <p class="hint warn">
+        下面这些信息只会显示这一次，现在就复制保存。插件/支付通道配置需要你登录后台手动完成。
+      </p>
+
+      <div class="result-list" id="result-list"></div>
+
+      <div class="actions">
+        <a class="btn btn-primary" id="open-admin" href="#" target="_blank" rel="noopener">打开管理后台</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="foot">插件/通道配置不在这个向导里，部署完成后请登录后台手动设置。</footer>
+</div>
+
+<script src="/wizard.js"></script>
+</body>
+</html>

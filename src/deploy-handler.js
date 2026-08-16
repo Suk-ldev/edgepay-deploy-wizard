@@ -1,0 +1,149 @@
+import { readConfig } from './config.js';
+import { CloudflareClient } from './lib/cf-client.js';
+import { verifyToken } from './lib/cf-token.js';
+import { createDatabase, applySchema } from './lib/cf-d1.js';
+import { uploadAssets } from './lib/cf-assets.js';
+import { uploadWorkerScript } from './lib/cf-worker-script.js';
+import { enableWorkersDevSubdomain } from './lib/cf-subdomain.js';
+import { generateDeploySecrets } from './lib/secret-generator.js';
+import { fetchTemplateFiles } from './lib/template-fetcher.js';
+import { createProgressStream, STEP_LABELS } from './lib/progress-stream.js';
+import { DeployError, redact } from './lib/errors.js';
+
+const PROJECT_NAME_RE = /^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/;
+const ACCOUNT_ID_RE = /^[a-f0-9]{32}$/i;
+
+function validateInput(body) {
+  const errors = {};
+  if (!body?.cfApiToken || typeof body.cfApiToken !== 'string') errors.cfApiToken = '需要填写 Cloudflare API Token';
+  if (!body?.cfAccountId || !ACCOUNT_ID_RE.test(body.cfAccountId)) errors.cfAccountId = 'Account ID 应该是 32 位十六进制字符串';
+  if (!body?.projectName || !PROJECT_NAME_RE.test(body.projectName)) {
+    errors.projectName = '项目名只能包含小写字母、数字和短横线，且不能以短横线开头或结尾，最长 58 个字符';
+  }
+  if (body?.adminUsername !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(body.adminUsername)) {
+    errors.adminUsername = '管理员用户名格式不对';
+  }
+  return errors;
+}
+
+export async function handleDeploy(request, env) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: '请求体不是合法 JSON' }), { status: 400 });
+  }
+
+  const validationErrors = validateInput(body);
+  if (Object.keys(validationErrors).length > 0) {
+    return new Response(JSON.stringify({ error: '输入校验失败', fields: validationErrors }), { status: 400 });
+  }
+
+  const { cfApiToken, cfAccountId, projectName } = body;
+  const adminUsername = body.adminUsername || 'admin';
+  const config = readConfig(env);
+
+  if (!config.templateSha) {
+    return new Response(JSON.stringify({ error: '向导没有配置 TEMPLATE_COMMIT_SHA，联系管理员' }), { status: 500 });
+  }
+
+  const { readable, emit, close } = createProgressStream();
+
+  // 编排逻辑异步跑，边跑边往流里写进度；HTTP 响应立刻返回这个流。
+  (async () => {
+    const client = new CloudflareClient(cfApiToken);
+    const secrets = [cfApiToken];
+    const step = (stage) => ({ stage, label: STEP_LABELS[stage] });
+
+    try {
+      await emit({ ...step('validate'), status: 'done' });
+
+      await emit({ ...step('verify_token'), status: 'started' });
+      await verifyToken(client, cfAccountId);
+      await emit({ ...step('verify_token'), status: 'done' });
+
+      await emit({ ...step('template_fetch'), status: 'started' });
+      const files = await fetchTemplateFiles({
+        owner: config.templateOwner,
+        repo: config.templateRepo,
+        sha: config.templateSha,
+        githubToken: config.githubToken,
+      });
+      const srcFiles = files
+        .filter((f) => f.path.startsWith('src/'))
+        .map((f) => ({ path: f.path.slice('src/'.length), content: new TextDecoder().decode(f.bytes) }));
+      const publicFiles = files
+        .filter((f) => f.path.startsWith('public/'))
+        .map((f) => ({ path: f.path.slice('public/'.length), bytes: f.bytes }));
+      const schemaFile = files.find((f) => f.path === 'schema.sql');
+      if (!schemaFile) throw new DeployError('template_fetch', '模板里没有找到 schema.sql', { retryable: false });
+      const schemaText = new TextDecoder().decode(schemaFile.bytes);
+      await emit({ ...step('template_fetch'), status: 'done', detail: `${files.length} 个文件` });
+
+      await emit({ ...step('d1_create'), status: 'started' });
+      const databaseId = await createDatabase(client, cfAccountId, projectName);
+      await emit({ ...step('d1_create'), status: 'done', detail: databaseId });
+
+      await emit({ ...step('d1_schema'), status: 'started' });
+      const statementCount = await applySchema(client, cfAccountId, databaseId, schemaText);
+      await emit({ ...step('d1_schema'), status: 'done', detail: `${statementCount} 条语句` });
+
+      await emit({ ...step('generate_secrets'), status: 'started' });
+      const deploySecrets = generateDeploySecrets();
+      secrets.push(...Object.values(deploySecrets));
+      await emit({ ...step('generate_secrets'), status: 'done' });
+
+      await emit({ ...step('assets_upload'), status: 'started' });
+      const assetsJwt = await uploadAssets(client, cfAccountId, projectName, publicFiles);
+      await emit({ ...step('assets_upload'), status: 'done', detail: `${publicFiles.length} 个文件` });
+
+      await emit({ ...step('script_upload'), status: 'started' });
+      const placeholderBaseUrl = body.publicBaseUrl || `https://${projectName}.workers.dev`;
+      await uploadWorkerScript(client, cfAccountId, projectName, {
+        sourceFiles: srcFiles,
+        databaseId,
+        secrets: deploySecrets,
+        vars: {
+          PUBLIC_BASE_URL: placeholderBaseUrl,
+          EPAY_PID: '1000',
+          ADMIN_USERNAME: adminUsername,
+        },
+        assetsCompletionJwt: assetsJwt,
+      });
+      await emit({ ...step('script_upload'), status: 'done' });
+
+      await emit({ ...step('enable_subdomain'), status: 'started' });
+      const workersDevUrl = await enableWorkersDevSubdomain(client, cfAccountId, projectName);
+      await emit({ ...step('enable_subdomain'), status: 'done', detail: workersDevUrl });
+
+      await emit({
+        stage: 'complete',
+        status: 'done',
+        result: {
+          workersDevUrl,
+          adminUrl: `${workersDevUrl}/admin`,
+          adminUsername,
+          ...deploySecrets,
+          note: '如果之后绑定了自定义域名，记得回后台把 PUBLIC_BASE_URL 改成正式域名并重新部署一次。',
+        },
+      });
+    } catch (err) {
+      const deployError = err instanceof DeployError
+        ? err
+        : new DeployError('unknown', redact(String(err), secrets));
+      await emit({
+        stage: deployError.stage,
+        status: 'error',
+        message: redact(deployError.message, secrets),
+        retryable: deployError.retryable,
+        detail: redact(deployError.detail, secrets),
+      });
+    } finally {
+      await close();
+    }
+  })();
+
+  return new Response(readable, {
+    headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8' },
+  });
+}

@@ -7,6 +7,29 @@ function bytesToBase64(bytes) {
   return btoa(binary);
 }
 
+const EXTENSION_CONTENT_TYPES = {
+  html: 'text/html; charset=utf-8',
+  css: 'text/css; charset=utf-8',
+  js: 'application/javascript; charset=utf-8',
+  json: 'application/json; charset=utf-8',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  ico: 'image/x-icon',
+  svg: 'image/svg+xml',
+};
+
+// Cloudflare 会把这里 Blob 的 type 原样当成这个静态资源最终对外的 Content-Type——
+// 之前统一写死 text/plain，导致所有 HTML/CSS/JS 都被当纯文本发给浏览器（不渲染、
+// 中文按错误编码显示）。按扩展名给出正确的类型，拿不到就退回不带 charset 的
+// application/octet-stream，而不是继续假装它是文本。
+export function contentTypeForPath(path) {
+  const ext = path.split('.').pop()?.toLowerCase();
+  return EXTENSION_CONTENT_TYPES[ext] ?? 'application/octet-stream';
+}
+
 /**
  * 静态资源两段式直传：
  *   1) 提交 manifest（路径 -> hash/size），拿到需要上传的 bucket 分组和一个上传用 jwt。
@@ -58,7 +81,7 @@ export async function uploadAssets(client, accountId, scriptName, files) {
         });
       }
       const base64 = bytesToBase64(file.bytes);
-      form.append(hash, new Blob([base64], { type: 'text/plain' }), hash);
+      form.append(hash, new Blob([base64], { type: contentTypeForPath(file.path) }), hash);
     }
 
     let uploadResult;

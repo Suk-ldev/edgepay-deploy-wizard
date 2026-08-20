@@ -12,7 +12,7 @@ export async function route(request, env) {
     return handleVerifyToken(request);
   }
   if (request.method === 'POST' && url.pathname === '/api/verify-license') {
-    return handleVerifyLicense(request);
+    return handleVerifyLicense(request, env);
   }
   if (url.pathname.startsWith('/api/')) {
     return new Response(JSON.stringify({ error: 'not found' }), {

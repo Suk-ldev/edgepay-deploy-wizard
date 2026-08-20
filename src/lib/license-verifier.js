@@ -3,6 +3,11 @@ import { DeployError, redact } from './errors.js';
 export const LICENSE_SERVER_URL = 'https://license.imsuk.cn';
 const LICENSE_RE = /^EPL1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/u;
 
+export function licenseFetcher(env) {
+  const service = env?.LICENSE_SERVICE;
+  return typeof service?.fetch === 'function' ? service.fetch.bind(service) : fetch;
+}
+
 function fromBase64url(value) {
   const normalized = String(value).replaceAll('-', '+').replaceAll('_', '/');
   const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));

@@ -14,6 +14,12 @@ directory = "./public"
 binding = "ASSETS"
 run_worker_first = true
 
+# Worker 间使用 Service Binding，避免从 Cloudflare 边缘回源自定义主机名；
+# 请求 URL 仍固定为 https://license.imsuk.cn。
+[[services]]
+binding = "LICENSE_SERVICE"
+service = "edgepay-license-worker"
+
 [vars]
 TEMPLATE_OWNER = "Suk-ldev"
 TEMPLATE_REPO = "edgepay-serverless-payment"

@@ -9,7 +9,7 @@ import { generateDeploySecrets } from './lib/secret-generator.js';
 import { fetchTemplateFiles } from './lib/template-fetcher.js';
 import { createProgressStream, STEP_LABELS } from './lib/progress-stream.js';
 import { DeployError, redact } from './lib/errors.js';
-import { normalizePublicBaseUrl, verifyLicense } from './lib/license-verifier.js';
+import { licenseFetcher, normalizePublicBaseUrl, verifyLicense } from './lib/license-verifier.js';
 
 const PROJECT_NAME_RE = /^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/;
 const ACCOUNT_ID_RE = /^[a-f0-9]{32}$/i;
@@ -70,7 +70,7 @@ export async function handleDeploy(request, env) {
 
       await emit({ ...step('license_verify'), status: 'started' });
       if (body.edgepayLicense) {
-        const licenseInfo = await verifyLicense(body.edgepayLicense);
+        const licenseInfo = await verifyLicense(body.edgepayLicense, licenseFetcher(env));
         if (!publicBaseUrl) {
           throw new DeployError('license_verify', `该 License 绑定 ${licenseInfo.domain}，请填写公开访问地址 https://${licenseInfo.domain}`, { retryable: false });
         }

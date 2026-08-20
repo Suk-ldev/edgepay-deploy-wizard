@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   LICENSE_SERVER_URL,
   decodeLicensePayload,
+  licenseFetcher,
   normalizePublicBaseUrl,
   verifyLicense,
 } from '../src/lib/license-verifier.js';
@@ -16,6 +17,14 @@ test('License 校验服务固定为 license.imsuk.cn 并读取绑定域名', () 
   const decoded = decodeLicensePayload(token({ license_id: 'lic_1', domain: 'pay.example.com' }));
   assert.equal(decoded.domain, 'pay.example.com');
   assert.throws(() => decodeLicensePayload('bad'), /EPL1/u);
+});
+
+test('部署环境优先通过 License Worker 服务绑定校验', async () => {
+  const calls = [];
+  const service = { fetch(url) { calls.push(url); return Response.json({ ok: true }); } };
+  const response = await licenseFetcher({ LICENSE_SERVICE: service })('https://license.imsuk.cn/api/v1/health');
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, ['https://license.imsuk.cn/api/v1/health']);
 });
 
 test('License 在线校验只向固定服务发送并返回权益', async () => {

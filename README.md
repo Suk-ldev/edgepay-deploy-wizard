@@ -86,3 +86,6 @@ npm run deploy
 `wrangler.toml` 的 `TEMPLATE_COMMIT_SHA` 必须锁定到已通过测试的
 `Suk-ldev/edgepay-serverless-payment` commit，不跟随分支自动漂移。升级模板时先发布并测试
 支付 Worker，再更新 commit SHA 和重新部署向导。
+
+支付模板仓库为私有仓库。生产向导必须使用 `wrangler secret put GITHUB_TOKEN`
+配置只读 Token；Token 不写入源码、配置文件或前端响应。

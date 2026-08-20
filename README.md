@@ -24,8 +24,9 @@
 4. 保存生成的永久 License；
 5. 在向导中填写相同正式域名和 License。
 
-向导会把 License 作为 `EDGEPAY_LICENSE` Worker Secret 上传。使用 License 时，“公开访问
-地址”的 hostname 必须与 License 域名一致；只使用免费插件时 License 可以留空。
+向导要求每次部署都填写 License，并把它作为 `EDGEPAY_LICENSE` Worker Secret 上传。
+“公开访问地址”的 hostname 必须与 License 域名一致；只使用免费插件时也要先在 License
+站生成授权，只是不选择任何付费插件。
 
 ## 自动生成的 Secret
 
@@ -34,7 +35,7 @@
 - `POLL_TRIGGER_TOKEN`
 - `CONFIG_ENCRYPTION_KEY`
 - `WATCHER_TRANSPORT_SECRET`
-- `EDGEPAY_LICENSE`（用户填写 License 时）
+- `EDGEPAY_LICENSE`
 
 完成页只显示一次，请立即保存。Docker watcher 的 `TRANSPORT_KEY` 使用
 `WATCHER_TRANSPORT_SECRET`，容器 `EDGEPAY_LICENSE` 使用同一 License。

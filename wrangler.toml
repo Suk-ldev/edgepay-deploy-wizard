@@ -25,7 +25,7 @@ TEMPLATE_REPO = "edgepay-serverless-payment"
 # 合并仓库发布后改为仓库名，并设置 TEMPLATE_SUBDIR = "payment-worker"。
 # 当前独立模板仓库的根目录就是支付 Worker，因此不设置子目录。
 # 锁定的模板 commit，不跟 main 分支自动漂移；升级模板版本时手动改这里。
-TEMPLATE_COMMIT_SHA = "aba53450fe70761aeacc59e49cf98121b6cdd7cb"
+TEMPLATE_COMMIT_SHA = "661a25f77a78097ddf73d38d0c082bc36479e94d"
 
 # 可选：GitHub PAT（零权限，只为了把拉模板文件的限流从 60/小时提到 5000/小时）。
 # 不设置也能跑，只是流量大时可能触发限流。

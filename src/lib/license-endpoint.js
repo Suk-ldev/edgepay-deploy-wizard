@@ -17,4 +17,3 @@ export async function licenseServerUrl(){
   cached=parsed.origin;
   return cached;
 }
-

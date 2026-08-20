@@ -39,11 +39,11 @@ body {
 
 .brand-mark {
   display: block;
-  font-size: 32px;
-  line-height: 1;
   margin-bottom: 10px;
   filter: drop-shadow(0 4px 18px color-mix(in srgb, var(--accent) 55%, transparent));
 }
+
+.brand-mark img { width: 42px; height: 42px; border-radius: 11px; }
 
 .brand-title {
   font-size: 26px;
@@ -151,6 +151,10 @@ h1 { font-size: 20px; margin: 0 0 8px; }
 .field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .field small { color: var(--muted); font-size: 12px; }
+.field-link { float: right; color: var(--accent-hover); font-size: 12px; text-decoration: none; }
+.license-field { padding: 14px; border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.license-status { display: block; min-height: 18px; margin-top: 8px; font-size: 12px; }
+.license-status.ok { color: var(--ok); }.license-status.bad { color: var(--danger); }
 
 .error {
   color: var(--danger);

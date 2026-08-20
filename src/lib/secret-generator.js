@@ -19,5 +19,6 @@ export function generateDeploySecrets() {
     EPAY_KEY: generateSecret(),
     POLL_TRIGGER_TOKEN: generateSecret(),
     CONFIG_ENCRYPTION_KEY: generateSecret(),
+    WATCHER_TRANSPORT_SECRET: generateSecret(),
   };
 }

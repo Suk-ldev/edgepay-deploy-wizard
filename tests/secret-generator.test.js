@@ -21,10 +21,10 @@ test('多次生成互不相同', () => {
   assert.equal(values.size, 50);
 });
 
-test('generateDeploySecrets 生成四个不同名字的密钥', () => {
+test('generateDeploySecrets 生成五个不同名字的密钥', () => {
   const secrets = generateDeploySecrets();
   const keys = Object.keys(secrets);
-  assert.deepEqual(keys.sort(), ['ADMIN_TOKEN', 'CONFIG_ENCRYPTION_KEY', 'EPAY_KEY', 'POLL_TRIGGER_TOKEN']);
+  assert.deepEqual(keys.sort(), ['ADMIN_TOKEN', 'CONFIG_ENCRYPTION_KEY', 'EPAY_KEY', 'POLL_TRIGGER_TOKEN', 'WATCHER_TRANSPORT_SECRET']);
   const values = Object.values(secrets);
   assert.equal(new Set(values).size, values.length);
 });

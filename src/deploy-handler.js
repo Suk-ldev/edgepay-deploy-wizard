@@ -9,6 +9,7 @@ import { generateDeploySecrets } from './lib/secret-generator.js';
 import { fetchTemplateFiles } from './lib/template-fetcher.js';
 import { createProgressStream, STEP_LABELS } from './lib/progress-stream.js';
 import { DeployError, redact } from './lib/errors.js';
+import { normalizePublicBaseUrl, verifyLicense } from './lib/license-verifier.js';
 
 const PROJECT_NAME_RE = /^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/;
 const ACCOUNT_ID_RE = /^[a-f0-9]{32}$/i;
@@ -23,6 +24,10 @@ function validateInput(body) {
   if (body?.adminUsername !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(body.adminUsername)) {
     errors.adminUsername = '管理员用户名格式不对';
   }
+  if (body?.edgepayLicense && !/^EPL1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u.test(body.edgepayLicense)) {
+    errors.edgepayLicense = 'License 格式应为 EPL1.payload.signature';
+  }
+  try { normalizePublicBaseUrl(body?.publicBaseUrl); } catch (error) { errors.publicBaseUrl = error.message; }
   return errors;
 }
 
@@ -41,6 +46,7 @@ export async function handleDeploy(request, env) {
 
   const { cfApiToken, cfAccountId, projectName } = body;
   const adminUsername = body.adminUsername || 'admin';
+  const publicBaseUrl = normalizePublicBaseUrl(body.publicBaseUrl);
   const config = readConfig(env);
 
   if (!config.templateSha) {
@@ -52,7 +58,7 @@ export async function handleDeploy(request, env) {
   // 编排逻辑异步跑，边跑边往流里写进度；HTTP 响应立刻返回这个流。
   (async () => {
     const client = new CloudflareClient(cfApiToken);
-    const secrets = [cfApiToken];
+    const secrets = [cfApiToken, body.edgepayLicense].filter(Boolean);
     const step = (stage) => ({ stage, label: STEP_LABELS[stage] });
 
     try {
@@ -62,11 +68,26 @@ export async function handleDeploy(request, env) {
       await verifyToken(client, cfAccountId);
       await emit({ ...step('verify_token'), status: 'done' });
 
+      await emit({ ...step('license_verify'), status: 'started' });
+      if (body.edgepayLicense) {
+        const licenseInfo = await verifyLicense(body.edgepayLicense);
+        if (!publicBaseUrl) {
+          throw new DeployError('license_verify', `该 License 绑定 ${licenseInfo.domain}，请填写公开访问地址 https://${licenseInfo.domain}`, { retryable: false });
+        }
+        if (new URL(publicBaseUrl).hostname !== licenseInfo.domain) {
+          throw new DeployError('license_verify', `公开访问地址与 License 域名不一致；License 绑定 ${licenseInfo.domain}`, { retryable: false });
+        }
+        await emit({ ...step('license_verify'), status: 'done', detail: `${licenseInfo.domain} · ${licenseInfo.entitlements.length} 个插件` });
+      } else {
+        await emit({ ...step('license_verify'), status: 'done', detail: '免费版' });
+      }
+
       await emit({ ...step('template_fetch'), status: 'started' });
       const files = await fetchTemplateFiles({
         owner: config.templateOwner,
         repo: config.templateRepo,
         sha: config.templateSha,
+        subdir: config.templateSubdir,
         githubToken: config.githubToken,
       });
       const srcFiles = files
@@ -81,8 +102,9 @@ export async function handleDeploy(request, env) {
       await emit({ ...step('template_fetch'), status: 'done', detail: `${files.length} 个文件` });
 
       await emit({ ...step('d1_create'), status: 'started' });
-      const databaseId = await createDatabase(client, cfAccountId, projectName);
-      await emit({ ...step('d1_create'), status: 'done', detail: databaseId });
+      const database = await createDatabase(client, cfAccountId, projectName);
+      const databaseId = database.databaseId;
+      await emit({ ...step('d1_create'), status: 'done', detail: database.reused ? `${databaseId}（复用现有数据库）` : databaseId });
 
       await emit({ ...step('d1_schema'), status: 'started' });
       const statementCount = await applySchema(client, cfAccountId, databaseId, schemaText);
@@ -90,6 +112,7 @@ export async function handleDeploy(request, env) {
 
       await emit({ ...step('generate_secrets'), status: 'started' });
       const deploySecrets = generateDeploySecrets();
+      if (body.edgepayLicense) deploySecrets.EDGEPAY_LICENSE = String(body.edgepayLicense);
       secrets.push(...Object.values(deploySecrets));
       await emit({ ...step('generate_secrets'), status: 'done' });
 
@@ -98,7 +121,7 @@ export async function handleDeploy(request, env) {
       await emit({ ...step('assets_upload'), status: 'done', detail: `${publicFiles.length} 个文件` });
 
       await emit({ ...step('script_upload'), status: 'started' });
-      const placeholderBaseUrl = body.publicBaseUrl || `https://${projectName}.workers.dev`;
+      const placeholderBaseUrl = publicBaseUrl || `https://${projectName}.workers.dev`;
       await uploadWorkerScript(client, cfAccountId, projectName, {
         sourceFiles: srcFiles,
         databaseId,

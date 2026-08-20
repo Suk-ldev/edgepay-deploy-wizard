@@ -4,11 +4,14 @@ const state = {
   projectName: '',
   adminUsername: 'admin',
   publicBaseUrl: '',
+  edgepayLicense: '',
+  licenseInfo: null,
 };
 
 const STEP_LABELS = {
   validate: '校验输入',
   verify_token: '校验 Cloudflare Token',
+  license_verify: '校验 EdgePay License',
   template_fetch: '拉取模板源码',
   d1_create: '创建 D1 数据库',
   d1_schema: '建表',
@@ -86,26 +89,79 @@ document.querySelectorAll('[data-back]').forEach((btn) => {
   });
 });
 
-$('step2-next').addEventListener('click', () => {
+$('step2-next').addEventListener('click', async () => {
   const projectName = $('projectName').value.trim();
   const adminUsername = $('adminUsername').value.trim() || 'admin';
   const publicBaseUrl = $('publicBaseUrl').value.trim();
+  const edgepayLicense = $('edgepayLicense').value.trim();
   const errorEl = $('step2-error');
+  const statusEl = $('license-status');
   errorEl.textContent = '';
+  statusEl.textContent = '';
+  statusEl.className = 'license-status';
 
   if (!/^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/.test(projectName)) {
     errorEl.textContent = '项目名只能用小写字母、数字和短横线';
     return;
   }
 
+  if (publicBaseUrl) {
+    try {
+      const url = new URL(publicBaseUrl);
+      if (url.protocol !== 'https:' || url.port || url.pathname !== '/' || url.search || url.hash) throw new Error();
+    } catch {
+      errorEl.textContent = '公开访问地址必须是无路径、无端口的 HTTPS 地址';
+      return;
+    }
+  }
+
+  let normalizedPublicBaseUrl = publicBaseUrl;
+  let licenseInfo = null;
+  const button = $('step2-next');
+  if (edgepayLicense) {
+    button.disabled = true;
+    button.textContent = '校验 License…';
+    try {
+      const response = await fetch('/api/verify-license', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ license: edgepayLicense }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || 'License 校验失败');
+      licenseInfo = result;
+      if (!normalizedPublicBaseUrl) {
+        normalizedPublicBaseUrl = `https://${result.domain}`;
+        $('publicBaseUrl').value = normalizedPublicBaseUrl;
+      }
+      if (new URL(normalizedPublicBaseUrl).hostname !== result.domain) {
+        throw new Error(`公开访问地址与 License 不一致；License 绑定 ${result.domain}`);
+      }
+      statusEl.textContent = `✓ 已验证：${result.domain} · ${result.entitlements.length} 个插件`;
+      statusEl.classList.add('ok');
+    } catch (error) {
+      errorEl.textContent = error.message;
+      statusEl.textContent = 'License 校验未通过';
+      statusEl.classList.add('bad');
+      return;
+    } finally {
+      button.disabled = false;
+      button.textContent = '下一步';
+    }
+  }
+
   state.projectName = projectName;
   state.adminUsername = adminUsername;
-  state.publicBaseUrl = publicBaseUrl;
+  state.publicBaseUrl = normalizedPublicBaseUrl;
+  state.edgepayLicense = edgepayLicense;
+  state.licenseInfo = licenseInfo;
 
   $('summary-project').textContent = projectName;
   $('summary-admin').textContent = adminUsername;
   $('summary-account').textContent = state.cfAccountId;
   $('summary-token').textContent = maskToken(state.cfApiToken);
+  $('summary-license').textContent = edgepayLicense
+    ? `${licenseInfo.domain} · ${licenseInfo.entitlements.length} 个插件 · ${maskToken(edgepayLicense)}`
+    : '免费版（5 个免费插件）';
 
   showScreen(3);
 });
@@ -141,6 +197,7 @@ $('deploy-btn').addEventListener('click', async () => {
   const errorEl = $('step3-error');
   errorEl.textContent = '';
   btn.disabled = true;
+  btn.textContent = '正在部署…';
   $('step3-back').disabled = true;
   renderProgressList();
 
@@ -154,6 +211,7 @@ $('deploy-btn').addEventListener('click', async () => {
         projectName: state.projectName,
         adminUsername: state.adminUsername,
         publicBaseUrl: state.publicBaseUrl || undefined,
+        edgepayLicense: state.edgepayLicense || undefined,
       }),
     });
 
@@ -167,6 +225,8 @@ $('deploy-btn').addEventListener('click', async () => {
     const decoder = new TextDecoder();
     let buffer = '';
 
+    let completed = false;
+    let failed = false;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -177,20 +237,24 @@ $('deploy-btn').addEventListener('click', async () => {
         if (!line.trim()) continue;
         const event = JSON.parse(line);
         if (event.stage === 'complete') {
+          completed = true;
           renderResult(event.result);
           showScreen(4);
         } else {
           updateProgress(event);
           if (event.status === 'error') {
-            errorEl.textContent = `部署在"${STEP_LABELS[event.stage] || event.stage}"这一步失败，可以点"开始部署"重试。`;
+            failed = true;
+            errorEl.textContent = `${event.message || '部署失败'}${event.retryable ? '；可以直接重试。' : '；请返回修改配置后重试。'}`;
           }
         }
       }
     }
+    if (!completed && !failed) errorEl.textContent = '部署连接提前结束，没有收到完成状态，请重试。';
   } catch {
-    errorEl.textContent = '连接中断，请重试';
+    errorEl.textContent = '部署进度连接中断，请确认网络后重试；已完成的 D1 数据库会自动复用。';
   } finally {
     btn.disabled = false;
+    btn.textContent = '开始部署';
     $('step3-back').disabled = false;
   }
 });
@@ -225,5 +289,6 @@ function renderResult(result) {
   list.appendChild(resultRow('EPAY_KEY', result.EPAY_KEY));
   list.appendChild(resultRow('POLL_TRIGGER_TOKEN', result.POLL_TRIGGER_TOKEN));
   list.appendChild(resultRow('CONFIG_ENCRYPTION_KEY', result.CONFIG_ENCRYPTION_KEY));
+  list.appendChild(resultRow('WATCHER_TRANSPORT_SECRET（Docker TRANSPORT_KEY）', result.WATCHER_TRANSPORT_SECRET));
   $('open-admin').href = result.adminUrl;
 }

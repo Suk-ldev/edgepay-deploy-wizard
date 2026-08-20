@@ -16,6 +16,7 @@ export function createProgressStream() {
 export const STEP_LABELS = {
   validate: '校验输入',
   verify_token: '校验 Cloudflare Token',
+  license_verify: '校验 EdgePay License',
   template_fetch: '拉取模板源码',
   d1_create: '创建 D1 数据库',
   d1_schema: '建表',

@@ -80,7 +80,18 @@ export function stripTopLevelDir(name) {
   return idx === -1 ? '' : name.slice(idx + 1);
 }
 
-export async function fetchTemplateFiles({ owner, repo, sha, fetchImpl = fetch }) {
+/**
+ * 可选地把 monorepo 子目录映射成模板根目录。
+ * 例如 payment-worker/src/index.js -> src/index.js。
+ */
+export function stripTemplateSubdir(path, subdir = '') {
+  const normalized = String(subdir).replace(/^\/+|\/+$/gu, '');
+  if (!normalized) return path;
+  const prefix = `${normalized}/`;
+  return path.startsWith(prefix) ? path.slice(prefix.length) : '';
+}
+
+export async function fetchTemplateFiles({ owner, repo, sha, subdir = '', fetchImpl = fetch }) {
   // 一次性拉整个仓库在这个 commit 的 tarball，而不是每个文件单独发一次请求——
   // Workers 对单次请求里能发出的子请求数有硬性上限（免费版 50 个），模板有三十多个
   // 文件，逐个 fetch 很容易把配额花在这一步，导致后面建表/上传步骤莫名其妙地失败。
@@ -103,7 +114,8 @@ export async function fetchTemplateFiles({ owner, repo, sha, fetchImpl = fetch }
 
   const files = [];
   for (const entry of rawEntries) {
-    const path = stripTopLevelDir(entry.name);
+    const repoPath = stripTopLevelDir(entry.name);
+    const path = stripTemplateSubdir(repoPath, subdir);
     if (!path) continue;
     files.push({ path, bytes: entry.bytes, isBinary: isBinaryAsset(path) });
   }

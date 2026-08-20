@@ -3,6 +3,15 @@ import { splitStatements } from './sql-splitter.js';
 
 export async function createDatabase(client, accountId, name) {
   try {
+    const existing = await client.getJSON(
+      `/accounts/${accountId}/d1/database?name=${encodeURIComponent(name)}&per_page=10`,
+      { stage: 'd1_create' },
+    );
+    const match = (Array.isArray(existing.result) ? existing.result : [])
+      .find((database) => database?.name === name);
+    const existingId = match?.uuid ?? match?.id;
+    if (existingId) return { databaseId: existingId, reused: true };
+
     const json = await client.postJSON(`/accounts/${accountId}/d1/database`, { name }, { stage: 'd1_create' });
     // Cloudflare 的响应字段名在不同文档来源里写法不一致（uuid vs id），两个都尝试一下，
     // 拿不到就明确报错而不是悄悄往下传一个 undefined。
@@ -13,13 +22,13 @@ export async function createDatabase(client, accountId, name) {
         detail: JSON.stringify(json.result ?? {}),
       });
     }
-    return databaseId;
+    return { databaseId, reused: false };
   } catch (err) {
     if (err instanceof DeployError && err.stage === 'cf_request') {
       throw new DeployError(
         'd1_create',
-        `创建 D1 数据库失败：${err.message}。可能已经建过一个同名库 "${name}"，去 Cloudflare 控制台的 D1 页面确认或删除后再重试。`,
-        { retryable: false, detail: err.detail },
+        `创建或查询 D1 数据库失败：${err.message}`,
+        { retryable: err.retryable, detail: err.detail },
       );
     }
     throw err;

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EdgePay 安装与 Docker 教程</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/guide.css"></head>
+<body><header><a class="brand" href="/"><img src="/favicon.svg" alt="">EdgePay</a><a href="/">返回部署向导</a></header>
+<main><section class="intro"><p class="eyebrow">INSTALLATION GUIDE</p><h1>从 License 到 Docker watcher</h1><p>按顺序完成授权、Worker 部署和容器监听器配置。</p></section>
+
+<section><div class="number">01</div><div><h2>获取永久 License</h2><ol>
+<li>打开 <a href="https://license.imsuk.cn" target="_blank" rel="noopener">license.imsuk.cn</a>。</li>
+<li>填写准备绑定给支付 Worker 的正式域名，例如 <code>pay.example.com</code>。这里不要填写 <code>license.imsuk.cn</code>。</li>
+<li>免费插件已经锁定为默认包含；按需选择付费插件，也可以全部不选。</li>
+<li>生成后立即复制并妥善保存以 <code>EPL1.</code> 开头的 License。后续增购继续使用同一串 License。</li>
+</ol><div class="notice">License 与域名严格绑定。部署向导中的“公开访问地址”必须使用同一域名。</div></div></section>
+
+<section><div class="number">02</div><div><h2>部署支付 Worker</h2><ol>
+<li>回到 <a href="https://deploy.imsuk.cn">deploy.imsuk.cn</a>，填写 Cloudflare API Token 和 Account ID。</li>
+<li>填写项目名、管理员用户名和公开访问地址，例如 <code>https://pay.example.com</code>。</li>
+<li>将刚才保存的 License 粘贴到“EdgePay 永久 License”。向导会在线验签并核对域名。</li>
+<li>确认后开始部署，保存完成页显示的所有密钥，尤其是 <code>ADMIN_TOKEN</code> 和 <code>WATCHER_TRANSPORT_SECRET</code>。</li>
+<li>在 Cloudflare 为支付 Worker 绑定正式域名，保证它与 License 域名一致。</li>
+</ol></div></section>
+
+<section><div class="number">03</div><div><h2>启动 Docker watcher</h2><p>公开镜像同时提供 AMD64 与 ARM64 版本：</p>
+<pre><button data-copy>复制</button><code>docker pull ghcr.io/suk-ldev/edgepay-watcher:latest</code></pre>
+<p>新建目录并创建 <code>.env</code>：</p><pre><button data-copy>复制</button><code>mkdir -p edgepay-watcher/storage
+cd edgepay-watcher
+cat &gt; .env &lt;&lt;'EOF'
+TZ=Asia/Shanghai
+WORKER_URL=https://pay.example.com
+TRANSPORT_KEY=部署完成页的-WATCHER_TRANSPORT_SECRET
+EDGEPAY_LICENSE=从-license.imsuk.cn-生成的-EPL1-License
+POLL_SECONDS=5
+MAX_CONCURRENCY=2
+WATCHER_STORAGE_DIR=/app/var/storage
+EOF
+chmod 600 .env</code></pre>
+<p>创建 <code>compose.yaml</code>：</p><pre><button data-copy>复制</button><code>services:
+  watcher:
+    image: ghcr.io/suk-ldev/edgepay-watcher:latest
+    container_name: payment-watcher
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./storage:/app/var/storage
+    shm_size: 256mb
+    mem_limit: 768m
+    security_opt:
+      - no-new-privileges:true</code></pre>
+<p>拉取并启动：</p><pre><button data-copy>复制</button><code>docker compose pull
+docker compose up -d
+docker compose ps
+docker compose logs -f --tail=100</code></pre>
+<div class="notice">Worker Secret <code>WATCHER_TRANSPORT_SECRET</code> 与容器 <code>TRANSPORT_KEY</code> 必须完全一致；Worker 和容器也必须填写同一 License。</div></div></section>
+
+<section><div class="number">04</div><div><h2>更新与排错</h2><pre><button data-copy>复制</button><code># 更新镜像
+docker compose pull &amp;&amp; docker compose up -d
+
+# 查看状态和最近日志
+docker compose ps
+docker compose logs --tail=200 watcher
+
+# 核对实际镜像摘要
+docker inspect payment-watcher --format '{{.Image}}'</code></pre>
+<ul><li>出现“License 域名不匹配”：检查 <code>WORKER_URL</code>、Worker 的 <code>PUBLIC_BASE_URL</code> 与 License 域名。</li><li>出现传输签名错误：重新核对 <code>TRANSPORT_KEY</code>。</li><li>浏览器型插件启动失败：确认容器至少有 512 MiB 可用内存，并保留 <code>shm_size</code>。</li></ul></div></section>
+</main><script>document.querySelectorAll('[data-copy]').forEach(button=>button.onclick=async()=>{const text=button.nextElementSibling.textContent;await navigator.clipboard.writeText(text);button.textContent='已复制';setTimeout(()=>button.textContent='复制',1200)})</script></body></html>

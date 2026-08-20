@@ -4,12 +4,13 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>一键部署 EdgePay</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/wizard.css" />
 </head>
 <body>
 <div class="page">
   <header class="brand">
-    <span class="brand-mark">🚀</span>
+    <span class="brand-mark"><img src="/favicon.svg" alt="" /></span>
     <h1 class="brand-title">一键部署 · EdgePay</h1>
     <p class="brand-sub">部署到你自己的 Cloudflare 账号</p>
   </header>
@@ -64,8 +65,16 @@
       </label>
 
       <label class="field">
-        <span>公开访问地址（可选）</span>
+        <span>公开访问地址</span>
         <input type="text" id="publicBaseUrl" placeholder="留空则使用生成的 workers.dev 地址" />
+        <small>使用 License 时必须填写，并且域名要与 License 绑定域名一致。</small>
+      </label>
+
+      <label class="field license-field">
+        <span>EdgePay 永久 License <a class="field-link" href="https://license.imsuk.cn" target="_blank" rel="noopener">获取 License →</a></span>
+        <input type="password" id="edgepayLicense" autocomplete="off" placeholder="EPL1...；只使用免费插件时可留空" />
+        <small>向导会先在线验签并核对绑定域名，再作为加密 Worker Secret 上传；免费版可留空。</small>
+        <strong class="license-status" id="license-status"></strong>
       </label>
 
       <p class="error" id="step2-error"></p>
@@ -86,6 +95,7 @@
           <tr><th>管理员用户名</th><td id="summary-admin"></td></tr>
           <tr><th>Account ID</th><td id="summary-account"></td></tr>
           <tr><th>API Token</th><td id="summary-token"></td></tr>
+          <tr><th>License</th><td id="summary-license"></td></tr>
         </tbody>
       </table>
 
@@ -109,12 +119,13 @@
 
       <div class="actions">
         <a class="btn btn-primary" id="open-admin" href="#" target="_blank" rel="noopener">打开管理后台</a>
+        <a class="btn btn-ghost" href="/guide.html" target="_blank" rel="noopener">查看安装与 Docker 教程</a>
       </div>
     </section>
 
   </main>
 
-  <footer class="foot">插件/通道配置不在这个向导里，部署完成后请登录后台手动设置。</footer>
+  <footer class="foot">插件/通道配置需要在部署完成后登录后台设置 · <a href="/guide.html">安装与 Docker 教程</a></footer>
 </div>
 
 <script src="/wizard.js"></script>

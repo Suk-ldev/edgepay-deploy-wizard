@@ -66,14 +66,14 @@
 
       <label class="field">
         <span>公开访问地址</span>
-        <input type="text" id="publicBaseUrl" placeholder="留空则使用生成的 workers.dev 地址" />
-        <small>使用 License 时必须填写，并且域名要与 License 绑定域名一致。</small>
+        <input type="text" id="publicBaseUrl" placeholder="可留空，验证 License 后自动填写绑定域名" />
+        <small>最终地址必须与 License 绑定域名一致，留空时向导会自动填写。</small>
       </label>
 
       <label class="field license-field">
         <span>EdgePay 永久 License <a class="field-link" href="https://license.imsuk.cn" target="_blank" rel="noopener">获取 License →</a></span>
-        <input type="password" id="edgepayLicense" autocomplete="off" placeholder="EPL1...；只使用免费插件时可留空" />
-        <small>向导会先在线验签并核对绑定域名，再作为加密 Worker Secret 上传；免费版可留空。</small>
+        <input type="password" id="edgepayLicense" autocomplete="off" required placeholder="EPL1...；免费插件也需要先生成 License" />
+        <small>向导会先在线验签并核对绑定域名，再作为加密 Worker Secret 上传。</small>
         <strong class="license-status" id="license-status"></strong>
       </label>
 

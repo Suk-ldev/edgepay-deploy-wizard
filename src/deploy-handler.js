@@ -14,7 +14,7 @@ import { licenseFetcher, normalizePublicBaseUrl, verifyLicense } from './lib/lic
 const PROJECT_NAME_RE = /^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/;
 const ACCOUNT_ID_RE = /^[a-f0-9]{32}$/i;
 
-function validateInput(body) {
+export function validateInput(body) {
   const errors = {};
   if (!body?.cfApiToken || typeof body.cfApiToken !== 'string') errors.cfApiToken = '需要填写 Cloudflare API Token';
   if (!body?.cfAccountId || !ACCOUNT_ID_RE.test(body.cfAccountId)) errors.cfAccountId = 'Account ID 应该是 32 位十六进制字符串';
@@ -24,7 +24,9 @@ function validateInput(body) {
   if (body?.adminUsername !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(body.adminUsername)) {
     errors.adminUsername = '管理员用户名格式不对';
   }
-  if (body?.edgepayLicense && !/^EPL1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u.test(body.edgepayLicense)) {
+  if (!body?.edgepayLicense) {
+    errors.edgepayLicense = '需要填写从 License 站生成的永久 License';
+  } else if (!/^EPL1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u.test(body.edgepayLicense)) {
     errors.edgepayLicense = 'License 格式应为 EPL1.payload.signature';
   }
   try { normalizePublicBaseUrl(body?.publicBaseUrl); } catch (error) { errors.publicBaseUrl = error.message; }
@@ -46,7 +48,7 @@ export async function handleDeploy(request, env) {
 
   const { cfApiToken, cfAccountId, projectName } = body;
   const adminUsername = body.adminUsername || 'admin';
-  const publicBaseUrl = normalizePublicBaseUrl(body.publicBaseUrl);
+  let publicBaseUrl = normalizePublicBaseUrl(body.publicBaseUrl);
   const config = readConfig(env);
 
   if (!config.templateSha) {
@@ -69,18 +71,12 @@ export async function handleDeploy(request, env) {
       await emit({ ...step('verify_token'), status: 'done' });
 
       await emit({ ...step('license_verify'), status: 'started' });
-      if (body.edgepayLicense) {
-        const licenseInfo = await verifyLicense(body.edgepayLicense, licenseFetcher(env));
-        if (!publicBaseUrl) {
-          throw new DeployError('license_verify', `该 License 绑定 ${licenseInfo.domain}，请填写公开访问地址 https://${licenseInfo.domain}`, { retryable: false });
-        }
-        if (new URL(publicBaseUrl).hostname !== licenseInfo.domain) {
-          throw new DeployError('license_verify', `公开访问地址与 License 域名不一致；License 绑定 ${licenseInfo.domain}`, { retryable: false });
-        }
-        await emit({ ...step('license_verify'), status: 'done', detail: `${licenseInfo.domain} · ${licenseInfo.entitlements.length} 个插件` });
-      } else {
-        await emit({ ...step('license_verify'), status: 'done', detail: '免费版' });
+      const licenseInfo = await verifyLicense(body.edgepayLicense, licenseFetcher(env));
+      if (!publicBaseUrl) publicBaseUrl = `https://${licenseInfo.domain}`;
+      if (new URL(publicBaseUrl).hostname !== licenseInfo.domain) {
+        throw new DeployError('license_verify', `公开访问地址与 License 域名不一致；License 绑定 ${licenseInfo.domain}`, { retryable: false });
       }
+      await emit({ ...step('license_verify'), status: 'done', detail: `${licenseInfo.domain} · ${licenseInfo.entitlements.length} 个插件` });
 
       await emit({ ...step('template_fetch'), status: 'started' });
       const files = await fetchTemplateFiles({
@@ -112,7 +108,7 @@ export async function handleDeploy(request, env) {
 
       await emit({ ...step('generate_secrets'), status: 'started' });
       const deploySecrets = generateDeploySecrets();
-      if (body.edgepayLicense) deploySecrets.EDGEPAY_LICENSE = String(body.edgepayLicense);
+      deploySecrets.EDGEPAY_LICENSE = String(body.edgepayLicense);
       secrets.push(...Object.values(deploySecrets));
       await emit({ ...step('generate_secrets'), status: 'done' });
 

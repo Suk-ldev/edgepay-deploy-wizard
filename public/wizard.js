@@ -105,6 +105,11 @@ $('step2-next').addEventListener('click', async () => {
     return;
   }
 
+  if (!edgepayLicense) {
+    errorEl.textContent = '请先从 License 站生成并填写永久 License';
+    return;
+  }
+
   if (publicBaseUrl) {
     try {
       const url = new URL(publicBaseUrl);
@@ -118,35 +123,33 @@ $('step2-next').addEventListener('click', async () => {
   let normalizedPublicBaseUrl = publicBaseUrl;
   let licenseInfo = null;
   const button = $('step2-next');
-  if (edgepayLicense) {
-    button.disabled = true;
-    button.textContent = '校验 License…';
-    try {
-      const response = await fetch('/api/verify-license', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ license: edgepayLicense }),
-      });
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.error || 'License 校验失败');
-      licenseInfo = result;
-      if (!normalizedPublicBaseUrl) {
-        normalizedPublicBaseUrl = `https://${result.domain}`;
-        $('publicBaseUrl').value = normalizedPublicBaseUrl;
-      }
-      if (new URL(normalizedPublicBaseUrl).hostname !== result.domain) {
-        throw new Error(`公开访问地址与 License 不一致；License 绑定 ${result.domain}`);
-      }
-      statusEl.textContent = `✓ 已验证：${result.domain} · ${result.entitlements.length} 个插件`;
-      statusEl.classList.add('ok');
-    } catch (error) {
-      errorEl.textContent = error.message;
-      statusEl.textContent = 'License 校验未通过';
-      statusEl.classList.add('bad');
-      return;
-    } finally {
-      button.disabled = false;
-      button.textContent = '下一步';
+  button.disabled = true;
+  button.textContent = '校验 License…';
+  try {
+    const response = await fetch('/api/verify-license', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ license: edgepayLicense }),
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || 'License 校验失败');
+    licenseInfo = result;
+    if (!normalizedPublicBaseUrl) {
+      normalizedPublicBaseUrl = `https://${result.domain}`;
+      $('publicBaseUrl').value = normalizedPublicBaseUrl;
     }
+    if (new URL(normalizedPublicBaseUrl).hostname !== result.domain) {
+      throw new Error(`公开访问地址与 License 不一致；License 绑定 ${result.domain}`);
+    }
+    statusEl.textContent = `✓ 已验证：${result.domain} · ${result.entitlements.length} 个插件`;
+    statusEl.classList.add('ok');
+  } catch (error) {
+    errorEl.textContent = error.message;
+    statusEl.textContent = 'License 校验未通过';
+    statusEl.classList.add('bad');
+    return;
+  } finally {
+    button.disabled = false;
+    button.textContent = '下一步';
   }
 
   state.projectName = projectName;
@@ -159,9 +162,7 @@ $('step2-next').addEventListener('click', async () => {
   $('summary-admin').textContent = adminUsername;
   $('summary-account').textContent = state.cfAccountId;
   $('summary-token').textContent = maskToken(state.cfApiToken);
-  $('summary-license').textContent = edgepayLicense
-    ? `${licenseInfo.domain} · ${licenseInfo.entitlements.length} 个插件 · ${maskToken(edgepayLicense)}`
-    : '免费版（5 个免费插件）';
+  $('summary-license').textContent = `${licenseInfo.domain} · ${licenseInfo.entitlements.length} 个插件 · ${maskToken(edgepayLicense)}`;
 
   showScreen(3);
 });

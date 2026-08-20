@@ -27,7 +27,7 @@ function readOctal(bytes, offset, length) {
 
 /**
  * 极简 tar（POSIX ustar + GNU 长文件名扩展）解析：只处理普通文件条目，目录/pax 扩展头
- * 等一律跳过。GitHub 的 codeload tarball 用的正是这种格式，我们的文件路径都很短，
+ * 等一律跳过。GitHub 的仓库 tarball 使用这种格式，我们的文件路径都很短，
  * 不会触发长文件名之外的其他扩展头类型。
  */
 export function parseTar(bytes) {
@@ -68,7 +68,7 @@ export function parseTar(bytes) {
 }
 
 /**
- * 把 codeload 打包出来的路径（形如 "<repo>-<sha>/src/index.js"）去掉最外层那个目录名，
+ * 把 GitHub 打包出来的路径（形如 "<repo>-<sha>/src/index.js"）去掉最外层那个目录名，
  * 变成相对仓库根目录的路径（"src/index.js"）。
  */
 export function stripTopLevelDir(name) {
@@ -87,14 +87,22 @@ export function stripTemplateSubdir(path, subdir = '') {
   return path.startsWith(prefix) ? path.slice(prefix.length) : '';
 }
 
-export async function fetchTemplateFiles({ owner, repo, sha, subdir = '', fetchImpl = fetch }) {
+export async function fetchTemplateFiles({ owner, repo, sha, subdir = '', githubToken = '', fetchImpl = fetch }) {
   // 一次性拉整个仓库在这个 commit 的 tarball，而不是每个文件单独发一次请求——
   // Workers 对单次请求里能发出的子请求数有硬性上限（免费版 50 个），模板有三十多个
   // 文件，逐个 fetch 很容易把配额花在这一步，导致后面建表/上传步骤莫名其妙地失败。
-  const url = `https://codeload.github.com/${owner}/${repo}/tar.gz/${sha}`;
+  // 通过 GitHub API 获取固定 commit 的 tarball。私有模板仓库必须使用 Worker Secret
+  // GITHUB_TOKEN；API 会返回短时效下载地址，fetch 会自动跟随重定向。
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tarball/${encodeURIComponent(sha)}`;
+  const requestHeaders = {
+    accept: 'application/vnd.github+json',
+    'user-agent': 'edgepay-deploy-wizard',
+    'x-github-api-version': '2022-11-28',
+  };
+  if (githubToken) requestHeaders.authorization = `Bearer ${githubToken}`;
   let response;
   try {
-    response = await fetchImpl(url, { headers: { 'User-Agent': 'edgepay-deploy-wizard' } });
+    response = await fetchImpl(url, { headers: requestHeaders, redirect: 'follow' });
   } catch (networkError) {
     throw new DeployError('template_fetch', `拉取模板 tarball 失败：${String(networkError)}`, { retryable: true });
   }

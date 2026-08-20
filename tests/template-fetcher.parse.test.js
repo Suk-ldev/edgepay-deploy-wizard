@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  fetchTemplateFiles,
   filterTemplatePaths,
   stripTemplateSubdir,
   stripTopLevelDir,
@@ -41,7 +42,7 @@ test('空列表返回空数组', () => {
   assert.deepEqual(filterTemplatePaths([]), []);
 });
 
-test('stripTopLevelDir 去掉 codeload tarball 最外层目录名', () => {
+test('stripTopLevelDir 去掉 GitHub tarball 最外层目录名', () => {
   assert.equal(stripTopLevelDir('edgepay-serverless-payment-abc123/src/index.js'), 'src/index.js');
   assert.equal(stripTopLevelDir('edgepay-serverless-payment-abc123/'), '');
   assert.equal(stripTopLevelDir('edgepay-serverless-payment-abc123'), '');
@@ -52,4 +53,21 @@ test('stripTemplateSubdir 支持从合并仓库读取 payment-worker 模板', ()
   assert.equal(stripTemplateSubdir('payment-worker/schema.sql', '/payment-worker/'), 'schema.sql');
   assert.equal(stripTemplateSubdir('watcher/watcher.mjs', 'payment-worker'), '');
   assert.equal(stripTemplateSubdir('src/index.js'), 'src/index.js');
+});
+
+test('私有模板通过 GitHub API 携带 Secret Token 获取固定 commit', async () => {
+  let captured;
+  const fetchImpl = async (url, options) => {
+    captured = { url, options };
+    return new Response('', { status: 404 });
+  };
+  await assert.rejects(
+    fetchTemplateFiles({
+      owner: 'OWNER', repo: 'REPO', sha: 'COMMIT_SHA', githubToken: 'TOKEN_VALUE', fetchImpl,
+    }),
+    /GitHub 返回 404/u,
+  );
+  assert.equal(captured.url, 'https://api.github.com/repos/OWNER/REPO/tarball/COMMIT_SHA');
+  assert.equal(captured.options.headers.authorization, 'Bearer TOKEN_VALUE');
+  assert.equal(captured.options.redirect, 'follow');
 });

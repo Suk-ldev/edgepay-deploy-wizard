@@ -12,7 +12,6 @@ export function buildScriptMetadata({ databaseId, secrets, vars, mainModule = 'i
     { type: D1_BINDING_TYPE, name: 'DB', id: databaseId },
     ...Object.entries(vars).map(([name, text]) => ({ type: 'plain_text', name, text })),
     ...Object.entries(secrets).map(([name, text]) => ({ type: 'secret_text', name, text })),
-    { type: 'assets', name: 'ASSETS' },
   ];
 
   return {
@@ -32,10 +31,8 @@ export async function uploadWorkerScript(client, accountId, scriptName, {
   databaseId,
   secrets,
   vars,
-  assetsCompletionJwt,
 }) {
   const metadata = buildScriptMetadata({ databaseId, secrets, vars });
-  metadata.assets = { jwt: assetsCompletionJwt, config: { html_handling: 'none', run_worker_first: true } };
 
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }), 'metadata.json');
@@ -55,7 +52,7 @@ export async function uploadWorkerScript(client, accountId, scriptName, {
   } catch (err) {
     throw new DeployError(
       'script_upload',
-      `D1 和静态资源已经就绪，但 Worker 脚本上传失败：${err.message}。请删除刚创建的 D1 数据库后重试整个向导。`,
+      `D1 已经就绪，但 Worker 脚本上传失败：${err.message}。请删除刚创建的 D1 数据库后重试整个向导。`,
       { retryable: false, detail: err instanceof DeployError ? err.detail : String(err) },
     );
   }

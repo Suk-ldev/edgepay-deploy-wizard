@@ -9,11 +9,12 @@
 3. 拉取锁定 commit 的支付 Worker 模板；
 4. 创建或复用同名 D1 并执行 schema；
 5. 生成 5 个随机 Worker Secret；
-6. 上传静态资源和 Worker 脚本；
+6. 把已内嵌前端资源的 Worker 脚本一次上传；
 7. 开启用户账号的 `workers.dev` 地址；
 8. 流式返回每一步状态与最终密钥。
 
-向导本身不使用 D1、KV 或其他持久化存储。Cloudflare Token 和 License 只存在于当前请求
+向导本身不使用 D1、KV 或其他持久化存储。客户项目也只创建一个 D1；收银台与后台资源已编译进
+Worker 模块，不创建 KV、Workers Static Assets 或额外资源命名空间。Cloudflare Token 和 License 只存在于当前请求
 内存，错误输出会经过脱敏处理。
 
 ## License

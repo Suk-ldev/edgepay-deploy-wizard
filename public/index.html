@@ -30,6 +30,7 @@
         向导只在这次部署请求里临时使用你的 Token 调用 Cloudflare API，不会保存、不会记日志。
         建议新建一个只带 <code>Account.D1:Edit</code> 和 <code>Account.Workers Scripts:Edit</code>
         权限的专用 Token，而不是用 Global API Key。
+        客户项目只使用一个 D1，前端资源随 Worker 模块发布，不创建 KV 或 Static Assets。
         <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">去 Cloudflare 建一个 →</a>
       </p>
 

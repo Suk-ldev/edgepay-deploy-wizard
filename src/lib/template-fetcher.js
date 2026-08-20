@@ -1,16 +1,12 @@
 import { DeployError } from './errors.js';
 
-const INCLUDED_PREFIXES = ['src/', 'public/'];
+const INCLUDED_PREFIXES = ['src/'];
 const INCLUDED_EXACT = ['schema.sql'];
-
-export function isBinaryAsset(path) {
-  return /\.(png|jpg|jpeg|gif|webp|ico)$/i.test(path);
-}
 
 /**
  * 纯函数：从 tar 包里解出来的路径列表中筛出这次部署真正需要的文件。
- * 只保留 src/**、public/** 和根目录的 schema.sql，忽略仓库里其他文件（README 等），
- * 这样模板仓库以后加别的文件不会被悄悄一起打包进部署产物。
+ * 只保留 src/** 和根目录 schema.sql。public/** 已生成进 src/bundled-assets.js，
+ * 客户部署不再创建 KV 或 Static Assets 资源。
  */
 export function filterTemplatePaths(paths) {
   return paths.filter(
@@ -117,14 +113,14 @@ export async function fetchTemplateFiles({ owner, repo, sha, subdir = '', fetchI
     const repoPath = stripTopLevelDir(entry.name);
     const path = stripTemplateSubdir(repoPath, subdir);
     if (!path) continue;
-    files.push({ path, bytes: entry.bytes, isBinary: isBinaryAsset(path) });
+    files.push({ path, bytes: entry.bytes });
   }
 
   const filteredPaths = new Set(filterTemplatePaths(files.map((f) => f.path)));
   const result = files.filter((f) => filteredPaths.has(f.path));
 
   if (result.length === 0) {
-    throw new DeployError('template_fetch', '模板 tarball 里没有找到 src/、public/ 或 schema.sql，检查 TEMPLATE_COMMIT_SHA 是否正确', {
+    throw new DeployError('template_fetch', '模板 tarball 里没有找到 src/ 或 schema.sql，检查 TEMPLATE_COMMIT_SHA 是否正确', {
       retryable: false,
     });
   }

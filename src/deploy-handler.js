@@ -2,7 +2,6 @@ import { readConfig } from './config.js';
 import { CloudflareClient } from './lib/cf-client.js';
 import { verifyToken } from './lib/cf-token.js';
 import { createDatabase, applySchema } from './lib/cf-d1.js';
-import { uploadAssets } from './lib/cf-assets.js';
 import { uploadWorkerScript } from './lib/cf-worker-script.js';
 import { enableWorkersDevSubdomain } from './lib/cf-subdomain.js';
 import { generateDeploySecrets } from './lib/secret-generator.js';
@@ -89,9 +88,6 @@ export async function handleDeploy(request, env) {
       const srcFiles = files
         .filter((f) => f.path.startsWith('src/'))
         .map((f) => ({ path: f.path.slice('src/'.length), content: new TextDecoder().decode(f.bytes) }));
-      const publicFiles = files
-        .filter((f) => f.path.startsWith('public/'))
-        .map((f) => ({ path: f.path.slice('public/'.length), bytes: f.bytes }));
       const schemaFile = files.find((f) => f.path === 'schema.sql');
       if (!schemaFile) throw new DeployError('template_fetch', '模板里没有找到 schema.sql', { retryable: false });
       const schemaText = new TextDecoder().decode(schemaFile.bytes);
@@ -112,10 +108,6 @@ export async function handleDeploy(request, env) {
       secrets.push(...Object.values(deploySecrets));
       await emit({ ...step('generate_secrets'), status: 'done' });
 
-      await emit({ ...step('assets_upload'), status: 'started' });
-      const assetsJwt = await uploadAssets(client, cfAccountId, projectName, publicFiles);
-      await emit({ ...step('assets_upload'), status: 'done', detail: `${publicFiles.length} 个文件` });
-
       await emit({ ...step('script_upload'), status: 'started' });
       const placeholderBaseUrl = publicBaseUrl || `https://${projectName}.workers.dev`;
       await uploadWorkerScript(client, cfAccountId, projectName, {
@@ -127,7 +119,6 @@ export async function handleDeploy(request, env) {
           EPAY_PID: '1000',
           ADMIN_USERNAME: adminUsername,
         },
-        assetsCompletionJwt: assetsJwt,
       });
       await emit({ ...step('script_upload'), status: 'done' });
 

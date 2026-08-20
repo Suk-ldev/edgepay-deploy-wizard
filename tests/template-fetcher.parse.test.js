@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   filterTemplatePaths,
-  isBinaryAsset,
   stripTemplateSubdir,
   stripTopLevelDir,
 } from '../src/lib/template-fetcher.js';
@@ -20,11 +19,9 @@ const fixturePaths = [
   'agent/serverless-watcher/README.md',
 ];
 
-test('只保留 src/**、public/** 和根目录 schema.sql', () => {
+test('只保留内嵌资源后的 src/** 和根目录 schema.sql', () => {
   const paths = filterTemplatePaths(fixturePaths);
   assert.deepEqual(paths.sort(), [
-    'public/cashier/index.html',
-    'public/index.html',
     'schema.sql',
     'src/channels.js',
     'src/index.js',
@@ -42,13 +39,6 @@ test('忽略 README、LICENSE、wrangler.toml.example、qa/、agent/ 等无关�
 
 test('空列表返回空数组', () => {
   assert.deepEqual(filterTemplatePaths([]), []);
-});
-
-test('isBinaryAsset 识别图片扩展名', () => {
-  assert.equal(isBinaryAsset('public/wechat.png'), true);
-  assert.equal(isBinaryAsset('public/fubei.jpg'), true);
-  assert.equal(isBinaryAsset('src/index.js'), false);
-  assert.equal(isBinaryAsset('public/styles.css'), false);
 });
 
 test('stripTopLevelDir 去掉 codeload tarball 最外层目录名', () => {

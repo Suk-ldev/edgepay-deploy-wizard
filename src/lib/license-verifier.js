@@ -1,6 +1,7 @@
 import { DeployError, redact } from './errors.js';
+import { licenseServerUrl } from './license-endpoint.js';
 
-export const LICENSE_SERVER_URL = 'https://license.imsuk.cn';
+const LICENSE_VERIFY_PUBLIC_KEY = 'MCowBQYDK2VwAyEA5VV3bEOBHwLjSdjb7M8VdWQYpsGtW3ixTUqMkBOmn0M=';
 const LICENSE_RE = /^EPL1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/u;
 
 export function licenseFetcher(env) {
@@ -12,6 +13,28 @@ function fromBase64url(value) {
   const normalized = String(value).replaceAll('-', '+').replaceAll('_', '/');
   const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
   return new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
+}
+
+function bytesFromBase64url(value) {
+  const normalized = String(value).replaceAll('-', '+').replaceAll('_', '/');
+  const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function bytesFromBase64(value) {
+  const binary = atob(String(value));
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+export async function verifyLicenseSignature(license, verificationKey = LICENSE_VERIFY_PUBLIC_KEY) {
+  const match = String(license ?? '').trim().match(LICENSE_RE);
+  if (!match) throw new DeployError('license_verify', 'License 格式应为 EPL1.payload.signature', { retryable: false });
+  const key = await crypto.subtle.importKey(
+    'spki', bytesFromBase64(verificationKey), { name: 'Ed25519' }, false, ['verify'],
+  );
+  const valid = await crypto.subtle.verify('Ed25519', key, bytesFromBase64url(match[2]), new TextEncoder().encode(match[1]));
+  if (!valid) throw new DeployError('license_verify', 'License 本地签名校验失败', { retryable: false });
+  return true;
 }
 
 export function decodeLicensePayload(license) {
@@ -27,11 +50,12 @@ export function decodeLicensePayload(license) {
   return { token, payload, domain };
 }
 
-export async function verifyLicense(license, fetchImpl = fetch) {
+export async function verifyLicense(license, fetchImpl = fetch, verificationKey = LICENSE_VERIFY_PUBLIC_KEY) {
   const decoded = decodeLicensePayload(license);
+  await verifyLicenseSignature(decoded.token, verificationKey);
   let response;
   try {
-    response = await fetchImpl(`${LICENSE_SERVER_URL}/api/v1/licenses/identify`, {
+    response = await fetchImpl(`${await licenseServerUrl()}/api/v1/licenses/identify`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ domain: decoded.domain, license: decoded.token }),
     });

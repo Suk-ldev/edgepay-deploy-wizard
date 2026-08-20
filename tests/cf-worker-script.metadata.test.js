@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildScriptMetadata } from '../src/lib/cf-worker-script.js';
 
-test('metadata 包含 D1、明文变量、密钥和 assets 绑定', () => {
+test('metadata 只包含 D1、明文变量和密钥，不创建 KV/Assets 绑定', () => {
   const metadata = buildScriptMetadata({
     databaseId: 'db-123',
     secrets: { ADMIN_TOKEN: 'secret-a', EPAY_KEY: 'secret-b' },
@@ -25,7 +25,8 @@ test('metadata 包含 D1、明文变量、密钥和 assets 绑定', () => {
   assert.equal(byName.ADMIN_TOKEN.text, 'secret-a');
   assert.equal(byName.EPAY_KEY.type, 'secret_text');
 
-  assert.equal(byName.ASSETS.type, 'assets');
+  assert.equal(byName.ASSETS, undefined);
+  assert.equal('assets' in metadata, false);
 });
 
 test('compatibility_date 是当天的 YYYY-MM-DD', () => {

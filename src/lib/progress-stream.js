@@ -21,7 +21,6 @@ export const STEP_LABELS = {
   d1_create: '创建 D1 数据库',
   d1_schema: '建表',
   generate_secrets: '生成密钥',
-  assets_upload: '上传静态资源',
   script_upload: '上传 Worker 脚本',
   enable_subdomain: '开启 workers.dev 子域名',
 };

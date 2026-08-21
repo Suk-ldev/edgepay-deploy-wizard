@@ -55,7 +55,24 @@ test('stripTemplateSubdir 支持从合并仓库读取 payment-worker 模板', ()
   assert.equal(stripTemplateSubdir('src/index.js'), 'src/index.js');
 });
 
-test('私有模板通过 GitHub API 携带 Secret Token 获取固定 commit', async () => {
+test('公开商业模板默认匿名读取固定 commit', async () => {
+  let captured;
+  const fetchImpl = async (url, options) => {
+    captured = { url, options };
+    return new Response('', { status: 404 });
+  };
+  await assert.rejects(
+    fetchTemplateFiles({
+      owner: 'OWNER', repo: 'REPO', sha: 'COMMIT_SHA', fetchImpl,
+    }),
+    /GitHub 返回 404/u,
+  );
+  assert.equal(captured.url, 'https://api.github.com/repos/OWNER/REPO/tarball/COMMIT_SHA');
+  assert.equal(captured.options.headers.authorization, undefined);
+  assert.equal(captured.options.redirect, 'follow');
+});
+
+test('可选 GitHub Token 只用于公开模板 API 限额扩容', async () => {
   let captured;
   const fetchImpl = async (url, options) => {
     captured = { url, options };

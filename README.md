@@ -87,5 +87,6 @@ npm run deploy
 `Suk-ldev/edgepay-serverless-payment` commit，不跟随分支自动漂移。升级模板时先发布并测试
 支付 Worker，再更新 commit SHA 和重新部署向导。
 
-支付模板仓库为私有仓库。生产向导必须使用 `wrangler secret put GITHUB_TOKEN`
-配置只读 Token；Token 不写入源码、配置文件或前端响应。
+支付模板仓库是公开的商业加密发行仓库，只包含压缩发行模块、D1 结构和完整性清单，
+不包含完整插件开发源码、Source Map 或 License Worker。向导默认匿名读取锁定 commit；
+`GITHUB_TOKEN` 仅用于可选的 GitHub API 限额扩容，不是部署前置条件。

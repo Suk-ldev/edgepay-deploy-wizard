@@ -22,11 +22,9 @@ service = "edgepay-license-worker"
 [vars]
 TEMPLATE_OWNER = "Suk-ldev"
 TEMPLATE_REPO = "edgepay-serverless-payment"
-# 合并仓库发布后改为仓库名，并设置 TEMPLATE_SUBDIR = "payment-worker"。
-# 当前独立模板仓库的根目录就是支付 Worker，因此不设置子目录。
+# 公开商业加密发行仓库根目录就是支付 Worker，因此不设置子目录。
 # 锁定的模板 commit，不跟 main 分支自动漂移；升级模板版本时手动改这里。
-TEMPLATE_COMMIT_SHA = "661a25f77a78097ddf73d38d0c082bc36479e94d"
+TEMPLATE_COMMIT_SHA = "a9cfeb201c8cd43a77047f412f50fd5264f4f974"
 
-# 必须：只读访问私有支付模板仓库的 GitHub Token。只通过 Worker Secret 配置，
-# 不写入源码、wrangler.toml 或部署页面。
-# 生产环境：wrangler secret put GITHUB_TOKEN
+# 支付模板仓库是公开商业加密发行仓库，默认匿名读取固定 commit。
+# GITHUB_TOKEN 仅作为可选的 GitHub API 限额扩容项，不是部署前置条件。

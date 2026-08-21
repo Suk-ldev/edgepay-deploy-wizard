@@ -91,8 +91,8 @@ export async function fetchTemplateFiles({ owner, repo, sha, subdir = '', github
   // 一次性拉整个仓库在这个 commit 的 tarball，而不是每个文件单独发一次请求——
   // Workers 对单次请求里能发出的子请求数有硬性上限（免费版 50 个），模板有三十多个
   // 文件，逐个 fetch 很容易把配额花在这一步，导致后面建表/上传步骤莫名其妙地失败。
-  // 通过 GitHub API 获取固定 commit 的 tarball。私有模板仓库必须使用 Worker Secret
-  // GITHUB_TOKEN；API 会返回短时效下载地址，fetch 会自动跟随重定向。
+  // 通过 GitHub API 匿名获取公开商业发行仓库的固定 commit tarball；如配置了可选的
+  // GITHUB_TOKEN，则只用于扩充 API 限额。API 返回短时效下载地址，fetch 会自动跟随重定向。
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tarball/${encodeURIComponent(sha)}`;
   const requestHeaders = {
     accept: 'application/vnd.github+json',

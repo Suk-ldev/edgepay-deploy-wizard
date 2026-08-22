@@ -1,6 +1,7 @@
 import { CloudflareClient } from './lib/cf-client.js';
 import { verifyToken } from './lib/cf-token.js';
 import { DeployError } from './lib/errors.js';
+import { getWorkersDevAccountSubdomain } from './lib/cf-subdomain.js';
 
 const ACCOUNT_ID_RE = /^[a-f0-9]{32}$/i;
 
@@ -19,7 +20,12 @@ export async function handleVerifyToken(request) {
   const client = new CloudflareClient(body.cfApiToken);
   try {
     await verifyToken(client, body.cfAccountId);
-    return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+    const workersDevSubdomain = await getWorkersDevAccountSubdomain(client, body.cfAccountId);
+    return Response.json({
+      ok: true,
+      workersDevConfigured: Boolean(workersDevSubdomain),
+      workersDevSubdomain,
+    });
   } catch (err) {
     const message = err instanceof DeployError ? err.message : 'Token 校验失败';
     return new Response(JSON.stringify({ ok: false, error: message }), {

@@ -65,6 +65,15 @@ export class CloudflareClient {
     });
   }
 
+  putJSON(path, body, opts) {
+    return this.#request(path, {
+      ...opts,
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(opts?.headers ?? {}) },
+      body: JSON.stringify(body),
+    });
+  }
+
   putMultipart(path, formData, opts) {
     return this.#request(path, { ...opts, method: 'PUT', body: formData });
   }

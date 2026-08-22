@@ -3,7 +3,7 @@ import { CloudflareClient } from './lib/cf-client.js';
 import { verifyToken } from './lib/cf-token.js';
 import { createDatabase, applySchema } from './lib/cf-d1.js';
 import { uploadWorkerContent, uploadWorkerScript } from './lib/cf-worker-script.js';
-import { enableWorkersDevSubdomain } from './lib/cf-subdomain.js';
+import { enableWorkersDevSubdomain, getWorkersDevAccountSubdomain } from './lib/cf-subdomain.js';
 import { generateDeploySecrets } from './lib/secret-generator.js';
 import { fetchTemplateFiles } from './lib/template-fetcher.js';
 import { createProgressStream, STEP_LABELS } from './lib/progress-stream.js';
@@ -72,6 +72,24 @@ export async function handleDeploy(request, env) {
 
       await emit({ ...step('verify_token'), status: 'started' });
       await verifyToken(client, cfAccountId);
+      if (mode === 'install') {
+        let accountSubdomain;
+        try {
+          accountSubdomain = await getWorkersDevAccountSubdomain(client, cfAccountId);
+        } catch (error) {
+          throw new DeployError('verify_token', '读取 workers.dev 子域名失败，请检查 Token 是否包含 Workers Scripts:Edit 权限', {
+            retryable: error instanceof DeployError ? error.retryable : true,
+            detail: error instanceof DeployError ? error.detail : String(error),
+          });
+        }
+        if (!accountSubdomain) {
+          throw new DeployError(
+            'verify_token',
+            '这个 Cloudflare 账号还没有 workers.dev 子域名，请返回第一步设置后再部署；尚未创建 D1 或 Worker',
+            { retryable: false },
+          );
+        }
+      }
       await emit({ ...step('verify_token'), status: 'done' });
 
       await emit({ ...step('license_verify'), status: 'started' });

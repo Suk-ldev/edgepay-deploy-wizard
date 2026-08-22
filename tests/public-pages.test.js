@@ -12,11 +12,14 @@ test('部署站点包含图标、License 获取入口和 Docker 教程', async (
   assert.doesNotMatch(index, /免费版可留空|免费插件时可留空/u);
   assert.match(index, /\/guide\.html/u);
   assert.match(index, /id="upgrade-dialog"/u);
+  assert.match(index, /id="workers-dev-dialog"/u);
+  assert.match(index, /id="workersDevSubdomain"/u);
   assert.match(index, /这是原版本，开始升级/u);
   assert.match(index, /原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由全部保留/u);
   assert.match(index, /id="summary-mode"/u);
   const wizard = await readFile(new URL('../public/wizard.js', import.meta.url), 'utf8');
   assert.match(wizard, /\/api\/check-project/u);
+  assert.match(wizard, /\/api\/workers-subdomain/u);
   assert.match(wizard, /mode: state\.mode/u);
   assert.match(wizard, /result\.mode === 'upgrade'/u);
   assert.match(guide, /ghcr\.io\/suk-ldev\/edgepay-watcher:latest/u);

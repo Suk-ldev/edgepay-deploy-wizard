@@ -137,6 +137,22 @@
     </div>
   </dialog>
 
+  <dialog id="workers-dev-dialog" class="confirm-dialog" aria-labelledby="workers-dev-title">
+    <h2 id="workers-dev-title">先设置 workers.dev 子域名</h2>
+    <p>这个 Cloudflare 账号还没有 workers.dev 子域名。它是账号级设置，只需要创建一次；向导会用现有 Token 直接完成，不会保存 Token。</p>
+    <label class="field">
+      <span>账号子域名前缀</span>
+      <input type="text" id="workersDevSubdomain" maxlength="63" autocomplete="off" />
+      <small>创建后地址格式为：项目名.这里填写的前缀.workers.dev</small>
+    </label>
+    <p class="error" id="workers-dev-error"></p>
+    <p><a href="https://dash.cloudflare.com/?to=/:account/workers/workers-and-pages" target="_blank" rel="noopener">也可以去 Cloudflare 控制台手动创建 →</a></p>
+    <div class="actions">
+      <button class="btn btn-ghost" id="workers-dev-cancel" type="button">暂不部署</button>
+      <button class="btn btn-primary" id="workers-dev-create" type="button">创建并继续</button>
+    </div>
+  </dialog>
+
   <footer class="foot">插件/通道配置需要在部署完成后登录后台设置 · <a href="/guide.html">安装与 Docker 教程</a></footer>
 </div>
 

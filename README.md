@@ -4,7 +4,7 @@
 
 向导通过一次无状态 HTTPS 请求完成：
 
-1. 校验 Cloudflare API Token 与 Account ID；
+1. 校验 Cloudflare API Token 与 Account ID；账号尚未设置 `workers.dev` 时先弹窗创建，未完成前不会创建 D1 或 Worker；
 2. 校验 EdgePay License 的签名、状态、绑定域名和插件权益；
 3. 从双源拉取锁定 commit 的支付 Worker 文件并核对 SHA-256；
 4. 检查同名 Worker：新项目继续创建，原 EdgePay 可选择无损升级；

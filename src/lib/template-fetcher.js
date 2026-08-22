@@ -38,7 +38,7 @@ async function fetchPinnedFile(options) {
   const failures = [];
   for (const source of sourceCandidates(options)) {
     try {
-      const response = await options.fetchImpl(source.url, source.options);
+      const response = await Reflect.apply(options.fetchImpl, globalThis, [source.url, source.options]);
       if (response.ok) {
         const bytes = new Uint8Array(await response.arrayBuffer());
         if (bytes.length > 0) return bytes;

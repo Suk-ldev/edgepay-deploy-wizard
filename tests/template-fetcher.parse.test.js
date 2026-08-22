@@ -23,6 +23,20 @@ test('固定 commit 只拉取商业发行所需的 schema 和单文件 Worker', 
   ]);
 });
 
+test('调用 Worker 全局 fetch 时保留正确的 globalThis 接收者', async () => {
+  let calls = 0;
+  const files = await fetchTemplateFiles({
+    owner: 'OWNER', repo: 'REPO', sha: SHA,
+    fetchImpl: function (url) {
+      assert.equal(this, globalThis);
+      calls += 1;
+      return Promise.resolve(ok(url.endsWith('schema.sql') ? 'schema' : 'worker'));
+    },
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(files.map((file) => new TextDecoder().decode(file.bytes)), ['schema', 'worker']);
+});
+
 test('jsDelivr 失败时回退到 GitHub Raw，不再下载 tarball', async () => {
   const requests = [];
   const files = await fetchTemplateFiles({

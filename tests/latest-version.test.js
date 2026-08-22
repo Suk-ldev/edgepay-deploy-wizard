@@ -4,8 +4,8 @@ import { handleLatestVersion } from '../src/latest-version-handler.js';
 
 const valid = {
   TEMPLATE_VERSION: '1.0.2',
-  TEMPLATE_COMMIT_SHA: '00779d78c778f6f480fe3f55de0bc81d03446ed4',
-  TEMPLATE_ENTRY_SHA256: '34d3972ac3d6b3633f49399a5b3917c1df45177c66cbb3d6cfb6bfd98725f8f8',
+  TEMPLATE_COMMIT_SHA: 'f2f5180564c2506842709791250aced7cae182d8',
+  TEMPLATE_ENTRY_SHA256: '8be2ddd8adc9e57d9dd2b0f757ccfd7ff831ae9bcd0bbc937bb245c08e570bb9',
 };
 
 test('公开版本接口返回部署向导锁定的商业发行版本', async () => {

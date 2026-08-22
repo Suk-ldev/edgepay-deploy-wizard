@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>一键部署 EdgePay</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-<link rel="stylesheet" href="/wizard.css?v=20260822-4" />
+<link rel="stylesheet" href="/wizard.css?v=20260822-5" />
 </head>
 <body>
 <div class="page">
@@ -66,6 +66,23 @@
       </label>
 
       <label class="field">
+        <span>管理员密码</span>
+        <input type="password" id="adminPassword" autocomplete="new-password" placeholder="新建部署必填，至少 8 个字符" />
+        <small>新建部署必填；无损升级会保留原密码，不会使用这里填写的内容。</small>
+      </label>
+
+      <label class="field">
+        <span>确认管理员密码</span>
+        <input type="password" id="adminPasswordConfirm" autocomplete="new-password" placeholder="再次输入管理员密码" />
+      </label>
+
+      <label class="field">
+        <span>Watcher 通信密钥（可选）</span>
+        <input type="password" id="watcherTransportSecret" autocomplete="off" placeholder="留空自动生成；自定义时至少 24 个字符" />
+        <small>用于 Docker Watcher 与 Worker 的请求签名，部署完成后填写到容器的 <code>TRANSPORT_KEY</code>。</small>
+      </label>
+
+      <label class="field">
         <span>公开访问地址</span>
         <input type="text" id="publicBaseUrl" placeholder="可留空，验证 License 后自动填写绑定域名" />
         <small>必须与 License 绑定域名一致；该域名需位于当前 Cloudflare 账号，部署时会直接绑定到 Worker。</small>
@@ -95,6 +112,8 @@
           <tr><th>操作方式</th><td id="summary-mode"></td></tr>
           <tr><th>项目名</th><td id="summary-project"></td></tr>
           <tr><th>管理员用户名</th><td id="summary-admin"></td></tr>
+          <tr><th>管理员密码</th><td id="summary-admin-password"></td></tr>
+          <tr><th>Watcher 通信密钥</th><td id="summary-watcher-secret"></td></tr>
           <tr><th>Account ID</th><td id="summary-account"></td></tr>
           <tr><th>API Token</th><td id="summary-token"></td></tr>
           <tr><th>License</th><td id="summary-license"></td></tr>
@@ -140,6 +159,6 @@
   <footer class="foot">插件/通道配置需要在部署完成后登录后台设置 · <a href="/guide.html">安装与 Docker 教程</a></footer>
 </div>
 
-<script src="/wizard.js?v=20260822-4"></script>
+<script src="/wizard.js?v=20260822-5"></script>
 </body>
 </html>

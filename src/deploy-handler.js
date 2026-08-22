@@ -16,6 +16,7 @@ const ACCOUNT_ID_RE = /^[a-f0-9]{32}$/i;
 
 export function validateInput(body) {
   const errors = {};
+  const mode = body?.mode === 'upgrade' ? 'upgrade' : 'install';
   if (!body?.cfApiToken || typeof body.cfApiToken !== 'string') errors.cfApiToken = '需要填写 Cloudflare API Token';
   if (!body?.cfAccountId || !ACCOUNT_ID_RE.test(body.cfAccountId)) errors.cfAccountId = 'Account ID 应该是 32 位十六进制字符串';
   if (!body?.projectName || !PROJECT_NAME_RE.test(body.projectName)) {
@@ -26,6 +27,14 @@ export function validateInput(body) {
   }
   if (body?.adminUsername !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(body.adminUsername)) {
     errors.adminUsername = '管理员用户名格式不对';
+  }
+  if (mode === 'install') {
+    if (typeof body?.adminPassword !== 'string' || body.adminPassword.length < 8 || body.adminPassword.length > 128) {
+      errors.adminPassword = '管理员密码必须填写，长度为 8 至 128 个字符';
+    }
+    if (body?.watcherTransportSecret && !/^[^\s]{24,128}$/u.test(body.watcherTransportSecret)) {
+      errors.watcherTransportSecret = 'Watcher 通信密钥应为 24 至 128 个不含空白的字符，留空时自动生成';
+    }
   }
   if (!body?.edgepayLicense) {
     errors.edgepayLicense = '需要填写从 License 站生成的永久 License';
@@ -64,7 +73,7 @@ export async function handleDeploy(request, env) {
   // 编排逻辑异步跑，边跑边往流里写进度；HTTP 响应立刻返回这个流。
   (async () => {
     const client = new CloudflareClient(cfApiToken);
-    const secrets = [cfApiToken, body.edgepayLicense].filter(Boolean);
+    const secrets = [cfApiToken, body.edgepayLicense, body.adminPassword, body.watcherTransportSecret].filter(Boolean);
     const step = (stage) => ({ stage, label: STEP_LABELS[stage] });
 
     try {
@@ -138,7 +147,10 @@ export async function handleDeploy(request, env) {
       await emit({ ...step('d1_schema'), status: 'done', detail: `${statementCount} 条语句` });
 
       await emit({ ...step('generate_secrets'), status: 'started' });
-      const deploySecrets = mode === 'upgrade' ? {} : generateDeploySecrets();
+      const deploySecrets = mode === 'upgrade' ? {} : generateDeploySecrets({
+        adminPassword: body.adminPassword,
+        watcherTransportSecret: body.watcherTransportSecret,
+      });
       if (mode === 'upgrade') {
         await emit({ ...step('generate_secrets'), status: 'done', detail: '保留现有 Secrets 和环境变量' });
       } else {

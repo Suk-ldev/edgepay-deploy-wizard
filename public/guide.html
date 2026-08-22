@@ -13,7 +13,8 @@
 
 <section><div class="number">02</div><div><h2>部署支付 Worker</h2><ol>
 <li>回到 <a href="https://deploy.imsuk.cn">deploy.imsuk.cn</a>，填写 Cloudflare API Token 和 Account ID。</li>
-<li>填写项目名、管理员用户名和公开访问地址，例如 <code>https://pay.example.com</code>。</li>
+<li>填写项目名、管理员用户名、管理员密码和公开访问地址，例如 <code>https://pay.example.com</code>。管理员密码为新建部署必填项。</li>
+<li>Watcher 通信密钥可以自行填写；留空时向导会生成高强度随机值，完成后把它填入容器的 <code>TRANSPORT_KEY</code>。</li>
 <li>将刚才保存的 License 粘贴到“EdgePay 永久 License”。向导会在线验签并核对域名。</li>
 <li>客户项目只创建一个 D1；收银台和后台文件已内嵌到 Worker，不会上传 KV 或 Workers Static Assets，因此不会占用对应的存储/命名空间限额。</li>
 <li>确认后开始部署，保存完成页显示的所有密钥，尤其是 <code>ADMIN_TOKEN</code> 和 <code>WATCHER_TRANSPORT_SECRET</code>。</li>

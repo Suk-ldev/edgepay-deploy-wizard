@@ -31,15 +31,16 @@ Worker 模块，不创建 KV、Workers Static Assets 或额外资源命名空间
 站生成授权，只是不选择任何付费插件。正式域名需要位于客户填写的 Cloudflare 账号中，向导会通过
 Workers Custom Domains API 直接绑定，不依赖账号级 `workers.dev` 子域名。
 
-## 自动生成的 Secret
+## 部署 Secret
 
-- `ADMIN_TOKEN`
-- `EPAY_KEY`
-- `POLL_TRIGGER_TOKEN`
-- `CONFIG_ENCRYPTION_KEY`
-- `WATCHER_TRANSPORT_SECRET`
-- `EDGEPAY_LICENSE`
+- `ADMIN_TOKEN`：新建部署时由用户填写的管理员密码
+- `EPAY_KEY`：自动生成
+- `POLL_TRIGGER_TOKEN`：自动生成
+- `CONFIG_ENCRYPTION_KEY`：自动生成
+- `WATCHER_TRANSPORT_SECRET`：用户可填写，留空时自动生成
+- `EDGEPAY_LICENSE`：用户填写的永久 License
 
+管理员密码长度为 8 至 128 个字符。自定义 Watcher 通信密钥需要 24 至 128 个不含空白的字符。
 完成页只显示一次，请立即保存。Docker watcher 的 `TRANSPORT_KEY` 使用
 `WATCHER_TRANSPORT_SECRET`，容器 `EDGEPAY_LICENSE` 使用同一 License。
 

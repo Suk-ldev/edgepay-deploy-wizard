@@ -7,10 +7,13 @@ test('部署站点包含图标、License 获取入口和 Docker 教程', async (
   const guide = await readFile(new URL('../public/guide.html', import.meta.url), 'utf8');
   const icon = await readFile(new URL('../public/favicon.svg', import.meta.url), 'utf8');
   assert.match(index, /rel="icon" href="\/favicon\.svg"/u);
-  assert.match(index, /wizard\.css\?v=20260822-4/u);
-  assert.match(index, /wizard\.js\?v=20260822-4/u);
+  assert.match(index, /wizard\.css\?v=20260822-5/u);
+  assert.match(index, /wizard\.js\?v=20260822-5/u);
   assert.match(index, /https:\/\/license\.imsuk\.cn/u);
   assert.match(index, /id="edgepayLicense"[^>]+required/u);
+  assert.match(index, /id="adminPassword"/u);
+  assert.match(index, /id="adminPasswordConfirm"/u);
+  assert.match(index, /id="watcherTransportSecret"/u);
   assert.doesNotMatch(index, /免费版可留空|免费插件时可留空/u);
   assert.match(index, /\/guide\.html/u);
   assert.match(index, /id="upgrade-dialog"/u);
@@ -28,6 +31,8 @@ test('部署站点包含图标、License 获取入口和 Docker 教程', async (
   assert.match(wizard, /result\.mode === 'upgrade'/u);
   assert.match(guide, /ghcr\.io\/suk-ldev\/edgepay-watcher:latest/u);
   assert.match(guide, /WATCHER_TRANSPORT_SECRET/u);
+  assert.match(guide, /管理员密码为新建部署必填项/u);
+  assert.match(guide, /留空时向导会生成高强度随机值/u);
   assert.match(guide, /无损升级/u);
   assert.match(guide, /License 域名直接绑定到支付 Worker/u);
   assert.match(guide, /不启用 <code>workers\.dev<\/code>/u);

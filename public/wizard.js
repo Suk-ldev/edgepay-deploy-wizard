@@ -3,6 +3,8 @@ const state = {
   cfAccountId: '',
   projectName: '',
   adminUsername: 'admin',
+  adminPassword: '',
+  watcherTransportSecret: '',
   publicBaseUrl: '',
   edgepayLicense: '',
   licenseInfo: null,
@@ -116,6 +118,9 @@ document.querySelectorAll('[data-back]').forEach((btn) => {
 $('step2-next').addEventListener('click', async () => {
   const projectName = $('projectName').value.trim();
   const adminUsername = $('adminUsername').value.trim() || 'admin';
+  const adminPassword = $('adminPassword').value;
+  const adminPasswordConfirm = $('adminPasswordConfirm').value;
+  const watcherTransportSecret = $('watcherTransportSecret').value.trim();
   const publicBaseUrl = $('publicBaseUrl').value.trim();
   const edgepayLicense = $('edgepayLicense').value.trim();
   const errorEl = $('step2-error');
@@ -185,10 +190,21 @@ $('step2-next').addEventListener('click', async () => {
       }
       state.mode = 'upgrade';
     }
+    if (state.mode === 'install') {
+      if (adminPassword.length < 8 || adminPassword.length > 128) {
+        throw new Error('管理员密码必须填写，长度为 8 至 128 个字符');
+      }
+      if (adminPassword !== adminPasswordConfirm) throw new Error('两次输入的管理员密码不一致');
+      if (watcherTransportSecret && !/^[^\s]{24,128}$/.test(watcherTransportSecret)) {
+        throw new Error('Watcher 通信密钥应为 24 至 128 个不含空白的字符，或留空自动生成');
+      }
+    }
   } catch (error) {
     errorEl.textContent = error.message;
-    statusEl.textContent = 'License 校验未通过';
-    statusEl.classList.add('bad');
+    if (!licenseInfo) {
+      statusEl.textContent = 'License 校验未通过';
+      statusEl.classList.add('bad');
+    }
     return;
   } finally {
     button.disabled = false;
@@ -197,6 +213,8 @@ $('step2-next').addEventListener('click', async () => {
 
   state.projectName = projectName;
   state.adminUsername = adminUsername;
+  state.adminPassword = state.mode === 'install' ? adminPassword : '';
+  state.watcherTransportSecret = state.mode === 'install' ? watcherTransportSecret : '';
   state.publicBaseUrl = normalizedPublicBaseUrl;
   state.edgepayLicense = edgepayLicense;
   state.licenseInfo = licenseInfo;
@@ -204,6 +222,10 @@ $('step2-next').addEventListener('click', async () => {
   $('summary-project').textContent = projectName;
   $('summary-mode').textContent = state.mode === 'upgrade' ? '无损升级（保留原配置）' : '新建部署';
   $('summary-admin').textContent = state.mode === 'upgrade' ? '保留原管理员设置' : adminUsername;
+  $('summary-admin-password').textContent = state.mode === 'upgrade' ? '保留原密码' : '已设置（确认页不显示）';
+  $('summary-watcher-secret').textContent = state.mode === 'upgrade'
+    ? '保留原通信密钥'
+    : watcherTransportSecret ? '使用自定义密钥' : '自动生成';
   $('summary-account').textContent = state.cfAccountId;
   $('summary-token').textContent = maskToken(state.cfApiToken);
   $('summary-license').textContent = `${licenseInfo.domain} · ${licenseInfo.entitlements.length} 个插件 · ${maskToken(edgepayLicense)}`;
@@ -261,6 +283,8 @@ async function refreshDeploymentMode() {
     state.mode = 'upgrade';
     $('summary-mode').textContent = '无损升级（保留原配置）';
     $('summary-admin').textContent = '保留原管理员设置';
+    $('summary-admin-password').textContent = '保留原密码';
+    $('summary-watcher-secret').textContent = '保留原通信密钥';
     return true;
   }
   $('projectName').value = '';
@@ -291,6 +315,8 @@ $('deploy-btn').addEventListener('click', async () => {
         cfAccountId: state.cfAccountId,
         projectName: state.projectName,
         adminUsername: state.adminUsername,
+        adminPassword: state.mode === 'install' ? state.adminPassword : undefined,
+        watcherTransportSecret: state.mode === 'install' ? state.watcherTransportSecret || undefined : undefined,
         publicBaseUrl: state.publicBaseUrl || undefined,
         edgepayLicense: state.edgepayLicense || undefined,
         mode: state.mode,
@@ -332,6 +358,8 @@ $('deploy-btn').addEventListener('click', async () => {
                 state.mode = 'upgrade';
                 $('summary-mode').textContent = '无损升级（保留原配置）';
                 $('summary-admin').textContent = '保留原管理员设置';
+                $('summary-admin-password').textContent = '保留原密码';
+                $('summary-watcher-secret').textContent = '保留原通信密钥';
                 errorEl.textContent = '已切换为无损升级，请点击“开始升级”。';
               } else {
                 $('projectName').value = '';

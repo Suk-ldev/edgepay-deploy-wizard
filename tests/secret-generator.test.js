@@ -22,9 +22,21 @@ test('多次生成互不相同', () => {
 });
 
 test('generateDeploySecrets 生成五个不同名字的密钥', () => {
-  const secrets = generateDeploySecrets();
+  const secrets = generateDeploySecrets({ adminPassword: 'AdminPassword!2026' });
   const keys = Object.keys(secrets);
   assert.deepEqual(keys.sort(), ['ADMIN_TOKEN', 'CONFIG_ENCRYPTION_KEY', 'EPAY_KEY', 'POLL_TRIGGER_TOKEN', 'WATCHER_TRANSPORT_SECRET']);
   const values = Object.values(secrets);
   assert.equal(new Set(values).size, values.length);
+  assert.equal(secrets.ADMIN_TOKEN, 'AdminPassword!2026');
+  assert.equal(secrets.WATCHER_TRANSPORT_SECRET.length, 43);
+});
+
+test('Watcher 通信密钥填写时原样使用，不填写时随机生成', () => {
+  const custom = 'watcher-custom-secret-2026';
+  const configured = generateDeploySecrets({
+    adminPassword: 'AdminPassword!2026',
+    watcherTransportSecret: custom,
+  });
+  assert.equal(configured.WATCHER_TRANSPORT_SECRET, custom);
+  assert.notEqual(configured.EPAY_KEY, custom);
 });

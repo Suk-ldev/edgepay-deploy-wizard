@@ -13,12 +13,12 @@ export function generateSecret() {
   return bytesToBase64Url(bytes);
 }
 
-export function generateDeploySecrets() {
+export function generateDeploySecrets({ adminPassword, watcherTransportSecret = '' }) {
   return {
-    ADMIN_TOKEN: generateSecret(),
+    ADMIN_TOKEN: String(adminPassword),
     EPAY_KEY: generateSecret(),
     POLL_TRIGGER_TOKEN: generateSecret(),
     CONFIG_ENCRYPTION_KEY: generateSecret(),
-    WATCHER_TRANSPORT_SECRET: generateSecret(),
+    WATCHER_TRANSPORT_SECRET: watcherTransportSecret || generateSecret(),
   };
 }

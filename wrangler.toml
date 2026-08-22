@@ -24,8 +24,9 @@ TEMPLATE_OWNER = "Suk-ldev"
 TEMPLATE_REPO = "edgepay-serverless-payment"
 # 公开商业加密发行仓库根目录就是支付 Worker，因此不设置子目录。
 # 锁定的模板 commit，不跟 main 分支自动漂移；升级模板版本时手动改这里。
-TEMPLATE_COMMIT_SHA = "f85116b6c76862d8549df8f63dcc9238c274e61d"
-TEMPLATE_ENTRY_SHA256 = "d1cfc2c383dabbbe05a4d24328f1bf2c4ee38947bbdd4463c08f0e4044e3d29d"
+TEMPLATE_COMMIT_SHA = "00779d78c778f6f480fe3f55de0bc81d03446ed4"
+TEMPLATE_VERSION = "1.0.2"
+TEMPLATE_ENTRY_SHA256 = "34d3972ac3d6b3633f49399a5b3917c1df45177c66cbb3d6cfb6bfd98725f8f8"
 TEMPLATE_SCHEMA_SHA256 = "e642b7a1180e65aff97a529749309023f8c8d3976e073a80c938b4774706719c"
 
 # 支付模板仓库是公开商业加密发行仓库，默认匿名读取固定 commit。

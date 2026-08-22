@@ -68,7 +68,7 @@
       <label class="field">
         <span>公开访问地址</span>
         <input type="text" id="publicBaseUrl" placeholder="可留空，验证 License 后自动填写绑定域名" />
-        <small>最终地址必须与 License 绑定域名一致，留空时向导会自动填写。</small>
+        <small>必须与 License 绑定域名一致；该域名需位于当前 Cloudflare 账号，部署时会直接绑定到 Worker。</small>
       </label>
 
       <label class="field license-field">
@@ -134,22 +134,6 @@
     <div class="actions">
       <button class="btn btn-ghost" id="upgrade-rename" type="button">返回重设名称</button>
       <button class="btn btn-primary" id="upgrade-confirm" type="button">这是原版本，开始升级</button>
-    </div>
-  </dialog>
-
-  <dialog id="workers-dev-dialog" class="confirm-dialog" aria-labelledby="workers-dev-title">
-    <h2 id="workers-dev-title">先设置 workers.dev 子域名</h2>
-    <p>这个 Cloudflare 账号还没有 workers.dev 子域名。它是账号级设置，只需要创建一次；向导会用现有 Token 直接完成，不会保存 Token。</p>
-    <label class="field">
-      <span>账号子域名前缀</span>
-      <input type="text" id="workersDevSubdomain" maxlength="63" autocomplete="off" />
-      <small>创建后地址格式为：项目名.这里填写的前缀.workers.dev</small>
-    </label>
-    <p class="error" id="workers-dev-error"></p>
-    <p><a href="https://dash.cloudflare.com/?to=/:account/workers/workers-and-pages" target="_blank" rel="noopener">也可以去 Cloudflare 控制台手动创建 →</a></p>
-    <div class="actions">
-      <button class="btn btn-ghost" id="workers-dev-cancel" type="button">暂不部署</button>
-      <button class="btn btn-primary" id="workers-dev-create" type="button">创建并继续</button>
     </div>
   </dialog>
 

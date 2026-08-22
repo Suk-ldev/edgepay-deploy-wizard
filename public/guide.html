@@ -17,7 +17,7 @@
 <li>将刚才保存的 License 粘贴到“EdgePay 永久 License”。向导会在线验签并核对域名。</li>
 <li>客户项目只创建一个 D1；收银台和后台文件已内嵌到 Worker，不会上传 KV 或 Workers Static Assets，因此不会占用对应的存储/命名空间限额。</li>
 <li>确认后开始部署，保存完成页显示的所有密钥，尤其是 <code>ADMIN_TOKEN</code> 和 <code>WATCHER_TRANSPORT_SECRET</code>。</li>
-<li>在 Cloudflare 为支付 Worker 绑定正式域名，保证它与 License 域名一致。</li>
+<li>向导会把 License 域名直接绑定到支付 Worker，不启用 <code>workers.dev</code>；该域名必须位于当前 Cloudflare 账号。</li>
 </ol></div></section>
 
 <section><div class="number">03</div><div><h2>无损升级</h2><ol>

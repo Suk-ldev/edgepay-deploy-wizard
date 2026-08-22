@@ -3,7 +3,7 @@ import { CloudflareClient } from './lib/cf-client.js';
 import { verifyToken } from './lib/cf-token.js';
 import { createDatabase, applySchema } from './lib/cf-d1.js';
 import { uploadWorkerContent, uploadWorkerScript } from './lib/cf-worker-script.js';
-import { enableWorkersDevSubdomain, getWorkersDevAccountSubdomain } from './lib/cf-subdomain.js';
+import { ensureWorkerCustomDomain } from './lib/cf-domain.js';
 import { generateDeploySecrets } from './lib/secret-generator.js';
 import { fetchTemplateFiles } from './lib/template-fetcher.js';
 import { createProgressStream, STEP_LABELS } from './lib/progress-stream.js';
@@ -72,24 +72,6 @@ export async function handleDeploy(request, env) {
 
       await emit({ ...step('verify_token'), status: 'started' });
       await verifyToken(client, cfAccountId);
-      if (mode === 'install') {
-        let accountSubdomain;
-        try {
-          accountSubdomain = await getWorkersDevAccountSubdomain(client, cfAccountId);
-        } catch (error) {
-          throw new DeployError('verify_token', '读取 workers.dev 子域名失败，请检查 Token 是否包含 Workers Scripts:Edit 权限', {
-            retryable: error instanceof DeployError ? error.retryable : true,
-            detail: error instanceof DeployError ? error.detail : String(error),
-          });
-        }
-        if (!accountSubdomain) {
-          throw new DeployError(
-            'verify_token',
-            '这个 Cloudflare 账号还没有 workers.dev 子域名，请返回第一步设置后再部署；尚未创建 D1 或 Worker',
-            { retryable: false },
-          );
-        }
-      }
       await emit({ ...step('verify_token'), status: 'done' });
 
       await emit({ ...step('license_verify'), status: 'started' });
@@ -163,7 +145,6 @@ export async function handleDeploy(request, env) {
       }
 
       await emit({ ...step('script_upload'), status: 'started' });
-      const placeholderBaseUrl = publicBaseUrl || `https://${projectName}.workers.dev`;
       if (mode === 'upgrade') {
         await uploadWorkerContent(client, cfAccountId, projectName, { sourceFiles: srcFiles });
         await emit({ ...step('script_upload'), status: 'done', detail: '程序已更新，配置未改动' });
@@ -173,7 +154,7 @@ export async function handleDeploy(request, env) {
           databaseId,
           secrets: deploySecrets,
           vars: {
-            PUBLIC_BASE_URL: placeholderBaseUrl,
+            PUBLIC_BASE_URL: publicBaseUrl,
             EPAY_PID: '1000',
             ADMIN_USERNAME: adminUsername,
             EDGEPAY_PROJECT_NAME: projectName,
@@ -182,24 +163,45 @@ export async function handleDeploy(request, env) {
         await emit({ ...step('script_upload'), status: 'done' });
       }
 
-      await emit({ ...step('enable_subdomain'), status: 'started' });
-      const workersDevUrl = mode === 'upgrade'
-        ? publicBaseUrl
-        : await enableWorkersDevSubdomain(client, cfAccountId, projectName);
-      await emit({ ...step('enable_subdomain'), status: 'done', detail: mode === 'upgrade' ? '保留原访问地址和路由' : workersDevUrl });
+      await emit({ ...step('bind_domain'), status: 'started' });
+      let domainBindingWarning = '';
+      try {
+        const domain = await ensureWorkerCustomDomain(
+          client,
+          cfAccountId,
+          projectName,
+          new URL(publicBaseUrl).hostname,
+        );
+        await emit({
+          ...step('bind_domain'),
+          status: 'done',
+          detail: domain.reused ? `${publicBaseUrl}（已绑定）` : `${publicBaseUrl}（绑定完成）`,
+        });
+      } catch (error) {
+        domainBindingWarning = error instanceof DeployError ? error.message : '自定义域名绑定失败';
+        await emit({
+          ...step('bind_domain'),
+          status: 'warning',
+          message: domainBindingWarning,
+          detail: error instanceof DeployError ? error.detail : String(error),
+        });
+      }
 
       await emit({
         stage: 'complete',
         status: 'done',
         result: {
-          workersDevUrl,
-          adminUrl: `${workersDevUrl}/admin`,
+          accessUrl: publicBaseUrl,
+          adminUrl: `${publicBaseUrl}/admin`,
           adminUsername,
           mode,
+          domainBindingWarning,
           ...deploySecrets,
           note: mode === 'upgrade'
-            ? '升级完成；原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由均已保留。'
-            : '如果之后绑定了自定义域名，记得回后台把 PUBLIC_BASE_URL 改成正式域名并重新部署一次。',
+            ? `升级完成；原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由均已保留。${domainBindingWarning ? ' 自定义域名尚未绑定，修正 Cloudflare 域名状态后可再次无损升级重试。' : ''}`
+            : domainBindingWarning
+              ? 'Worker 和 D1 已部署，全部密钥如下；自定义域名尚未绑定，修正 Cloudflare 域名状态后可用同名 Worker 选择无损升级重试。'
+              : 'License 域名已直接绑定到 Worker；workers.dev 未开启。',
         },
       });
     } catch (err) {

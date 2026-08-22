@@ -23,7 +23,7 @@ export const STEP_LABELS = {
   d1_schema: '建表',
   generate_secrets: '准备密钥与配置',
   script_upload: '上传 Worker 脚本',
-  enable_subdomain: '准备访问地址',
+  bind_domain: '绑定自定义域名',
 };
 
 export const STEP_ORDER = Object.keys(STEP_LABELS);

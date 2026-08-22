@@ -19,7 +19,7 @@ const STEP_LABELS = {
   d1_schema: '建表',
   generate_secrets: '准备密钥与配置',
   script_upload: '上传 Worker 脚本',
-  enable_subdomain: '准备访问地址',
+  bind_domain: '绑定自定义域名',
 };
 const STEP_ORDER = Object.keys(STEP_LABELS);
 
@@ -65,57 +65,6 @@ function confirmUpgrade(projectName, compatible) {
   });
 }
 
-function setupWorkersDev(token, accountId) {
-  const dialog = $('workers-dev-dialog');
-  const input = $('workersDevSubdomain');
-  const errorEl = $('workers-dev-error');
-  const createButton = $('workers-dev-create');
-  input.value = `edgepay-${accountId.slice(-8).toLowerCase()}`;
-  errorEl.textContent = '';
-  dialog.showModal();
-
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = (created) => {
-      if (settled) return;
-      settled = true;
-      dialog.close();
-      resolve(created);
-    };
-    $('workers-dev-cancel').onclick = () => finish(false);
-    dialog.oncancel = (event) => { event.preventDefault(); finish(false); };
-    createButton.onclick = async () => {
-      const subdomain = input.value.trim().toLowerCase();
-      errorEl.textContent = '';
-      if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(subdomain)) {
-        errorEl.textContent = '只能使用小写字母、数字和短横线，不能以短横线开头或结尾，最长 63 个字符';
-        return;
-      }
-      createButton.disabled = true;
-      createButton.textContent = '创建中…';
-      try {
-        const response = await fetch('/api/workers-subdomain', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cfApiToken: token, cfAccountId: accountId, subdomain }),
-        });
-        const result = await response.json();
-        if (!response.ok || !result.ok) {
-          errorEl.textContent = result.error || '创建失败，请换一个前缀重试';
-          return;
-        }
-        finish(true);
-      } catch {
-        errorEl.textContent = '网络错误，请重试';
-      } finally {
-        createButton.disabled = false;
-        createButton.textContent = '创建并继续';
-      }
-    };
-    setTimeout(() => input.focus(), 0);
-  });
-}
-
 // --- Step 1: Cloudflare credentials ---
 
 $('step1-next').addEventListener('click', async () => {
@@ -143,13 +92,6 @@ $('step1-next').addEventListener('click', async () => {
     if (!json.ok) {
       errorEl.textContent = json.error || 'Token 校验失败';
       return;
-    }
-    if (!json.workersDevConfigured) {
-      const created = await setupWorkersDev(token, accountId);
-      if (!created) {
-        errorEl.textContent = '需要先设置 workers.dev 子域名，向导才会开始创建 D1 和 Worker。';
-        return;
-      }
     }
     state.cfApiToken = token;
     state.cfAccountId = accountId;
@@ -286,12 +228,15 @@ function renderProgressList() {
 function updateProgress(event) {
   const li = $(`progress-${event.stage}`);
   if (!li) return;
-  li.classList.remove('started', 'done', 'error');
+  li.classList.remove('started', 'done', 'warning', 'error');
   li.classList.add(event.status);
   if (event.detail) {
     li.querySelector('span:last-child').textContent = `${STEP_LABELS[event.stage]} — ${event.detail}`;
   }
   if (event.status === 'error') {
+    li.querySelector('span:last-child').textContent = `${STEP_LABELS[event.stage]} — ${event.message}`;
+  }
+  if (event.status === 'warning') {
     li.querySelector('span:last-child').textContent = `${STEP_LABELS[event.stage]} — ${event.message}`;
   }
 }
@@ -388,11 +333,14 @@ function renderResult(result) {
   const list = $('result-list');
   list.innerHTML = '';
   $('complete-title').textContent = result.mode === 'upgrade' ? '升级完成' : '部署完成';
-  $('result-hint').textContent = result.mode === 'upgrade'
-    ? '程序已升级，原配置和数据保持不变。'
-    : '下面这些信息只会显示这一次，现在就复制保存。插件和支付通道需要登录后台配置。';
-  list.appendChild(resultRow('访问地址', result.workersDevUrl));
+  $('result-hint').textContent = result.domainBindingWarning
+    ? `${result.note} ${result.mode === 'upgrade' ? '' : '下面的密钥仍然只显示这一次，请先保存。'}`
+    : result.mode === 'upgrade'
+      ? '程序已升级，原配置和数据保持不变。'
+      : '下面这些信息只会显示这一次，现在就复制保存。插件和支付通道需要登录后台配置。';
+  list.appendChild(resultRow('访问地址', result.accessUrl));
   list.appendChild(resultRow('管理后台', result.adminUrl));
+  if (result.domainBindingWarning) list.appendChild(resultRow('域名绑定提示', result.domainBindingWarning));
   if (result.mode === 'upgrade') {
     list.appendChild(resultRow('保留内容', 'D1、插件配置、支付通道、环境变量、Secrets、定时任务和路由'));
   } else {

@@ -242,6 +242,8 @@ h1 { font-size: 20px; margin: 0 0 8px; }
 .progress li.started .dot { background: var(--accent); }
 .progress li.done { color: var(--ink); }
 .progress li.done .dot { background: var(--ok); }
+.progress li.warning { color: #f3c969; }
+.progress li.warning .dot { background: #f3c969; }
 .progress li.error { color: var(--danger); }
 .progress li.error .dot { background: var(--danger); }
 

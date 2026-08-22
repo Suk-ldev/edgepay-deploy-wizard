@@ -6,7 +6,7 @@ test('metadata 只包含 D1、明文变量和密钥，不创建 KV/Assets 绑定
   const metadata = buildScriptMetadata({
     databaseId: 'db-123',
     secrets: { ADMIN_TOKEN: 'secret-a', EPAY_KEY: 'secret-b' },
-    vars: { PUBLIC_BASE_URL: 'https://x.workers.dev', EPAY_PID: '1000' },
+    vars: { PUBLIC_BASE_URL: 'https://pay.example.com', EPAY_PID: '1000' },
   });
 
   assert.equal(metadata.main_module, 'index.js');
@@ -18,7 +18,7 @@ test('metadata 只包含 D1、明文变量和密钥，不创建 KV/Assets 绑定
   assert.equal(byName.DB.id, 'db-123');
 
   assert.equal(byName.PUBLIC_BASE_URL.type, 'plain_text');
-  assert.equal(byName.PUBLIC_BASE_URL.text, 'https://x.workers.dev');
+  assert.equal(byName.PUBLIC_BASE_URL.text, 'https://pay.example.com');
   assert.equal(byName.EPAY_PID.type, 'plain_text');
 
   assert.equal(byName.ADMIN_TOKEN.type, 'secret_text');

@@ -94,7 +94,10 @@ export async function handleDeploy(request, env) {
         await emit({ ...step('project_check'), status: 'done', detail: '已确认原 EdgePay，保留现有配置' });
       } else {
         if (existingWorker.exists) {
-          throw new DeployError('project_check', '同名 Worker 已存在，请返回确认升级或更换项目名', { retryable: false });
+          throw new DeployError('project_check', '同名 Worker 已存在，请确认升级或更换项目名', {
+            retryable: false,
+            action: existingWorker.compatible ? 'confirm_upgrade' : 'rename_project',
+          });
         }
         await emit({ ...step('project_check'), status: 'done', detail: '项目名可用' });
       }
@@ -214,6 +217,7 @@ export async function handleDeploy(request, env) {
         message: redact(deployError.message, secrets),
         retryable: deployError.retryable,
         detail: redact(deployError.detail, secrets),
+        action: deployError.action,
       });
     } finally {
       await close();

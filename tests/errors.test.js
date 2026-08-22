@@ -13,6 +13,11 @@ test('DeployError 序列化成干净的 JSON', () => {
   });
 });
 
+test('DeployError 可以携带前端恢复动作', () => {
+  const err = new DeployError('project_check', '同名 Worker 已存在', { action: 'confirm_upgrade' });
+  assert.equal(err.toJSON().action, 'confirm_upgrade');
+});
+
 test('redact 从字符串里剥掉出现过的密钥', () => {
   const token = 'cf-token-abcdef1234567890';
   const message = `请求失败: Authorization: Bearer ${token}`;

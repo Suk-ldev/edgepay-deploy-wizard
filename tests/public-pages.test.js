@@ -7,6 +7,8 @@ test('部署站点包含图标、License 获取入口和 Docker 教程', async (
   const guide = await readFile(new URL('../public/guide.html', import.meta.url), 'utf8');
   const icon = await readFile(new URL('../public/favicon.svg', import.meta.url), 'utf8');
   assert.match(index, /rel="icon" href="\/favicon\.svg"/u);
+  assert.match(index, /wizard\.css\?v=20260822-4/u);
+  assert.match(index, /wizard\.js\?v=20260822-4/u);
   assert.match(index, /https:\/\/license\.imsuk\.cn/u);
   assert.match(index, /id="edgepayLicense"[^>]+required/u);
   assert.doesNotMatch(index, /免费版可留空|免费插件时可留空/u);
@@ -18,6 +20,8 @@ test('部署站点包含图标、License 获取入口和 Docker 教程', async (
   assert.match(index, /id="summary-mode"/u);
   const wizard = await readFile(new URL('../public/wizard.js', import.meta.url), 'utf8');
   assert.match(wizard, /\/api\/check-project/u);
+  assert.match(wizard, /async function refreshDeploymentMode/u);
+  assert.match(wizard, /已切换为无损升级/u);
   assert.doesNotMatch(wizard, /\/api\/workers-subdomain|workersDevConfigured/u);
   assert.match(wizard, /bind_domain: '绑定自定义域名'/u);
   assert.match(wizard, /mode: state\.mode/u);

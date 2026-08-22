@@ -241,6 +241,35 @@ function updateProgress(event) {
   }
 }
 
+async function refreshDeploymentMode() {
+  if (state.mode !== 'install') return true;
+  const response = await fetch('/api/check-project', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      cfApiToken: state.cfApiToken,
+      cfAccountId: state.cfAccountId,
+      projectName: state.projectName,
+    }),
+  });
+  const projectState = await response.json();
+  if (!response.ok || !projectState.ok) throw new Error(projectState.error || '重新检查同名 Worker 失败');
+  if (!projectState.exists) return true;
+
+  const choice = await confirmUpgrade(state.projectName, projectState.compatible);
+  if (choice === 'upgrade') {
+    state.mode = 'upgrade';
+    $('summary-mode').textContent = '无损升级（保留原配置）';
+    $('summary-admin').textContent = '保留原管理员设置';
+    return true;
+  }
+  $('projectName').value = '';
+  showScreen(2);
+  $('projectName').focus();
+  $('step2-error').textContent = '请重新填写一个未被占用的项目名。';
+  return false;
+}
+
 $('deploy-btn').addEventListener('click', async () => {
   const btn = $('deploy-btn');
   const errorEl = $('step3-error');
@@ -251,6 +280,9 @@ $('deploy-btn').addEventListener('click', async () => {
   renderProgressList();
 
   try {
+    btn.textContent = '重新检查项目…';
+    if (!await refreshDeploymentMode()) return;
+    btn.textContent = state.mode === 'upgrade' ? '正在升级…' : '正在部署…';
     const res = await fetch('/api/deploy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -294,7 +326,22 @@ $('deploy-btn').addEventListener('click', async () => {
           updateProgress(event);
           if (event.status === 'error') {
             failed = true;
-            errorEl.textContent = `${event.message || '部署失败'}${event.retryable ? '；可以直接重试。' : '；请返回修改配置后重试。'}`;
+            if (event.action === 'confirm_upgrade') {
+              const choice = await confirmUpgrade(state.projectName, true);
+              if (choice === 'upgrade') {
+                state.mode = 'upgrade';
+                $('summary-mode').textContent = '无损升级（保留原配置）';
+                $('summary-admin').textContent = '保留原管理员设置';
+                errorEl.textContent = '已切换为无损升级，请点击“开始升级”。';
+              } else {
+                $('projectName').value = '';
+                showScreen(2);
+                $('projectName').focus();
+                $('step2-error').textContent = '请重新填写一个未被占用的项目名。';
+              }
+            } else {
+              errorEl.textContent = `${event.message || '部署失败'}${event.retryable ? '；可以直接重试。' : '；请返回修改配置后重试。'}`;
+            }
           }
         }
       }

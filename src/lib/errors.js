@@ -1,19 +1,22 @@
 export class DeployError extends Error {
-  constructor(stage, message, { retryable = false, detail = undefined } = {}) {
+  constructor(stage, message, { retryable = false, detail = undefined, status = undefined } = {}) {
     super(message);
     this.name = 'DeployError';
     this.stage = stage;
     this.retryable = retryable;
     this.detail = detail;
+    this.status = status;
   }
 
   toJSON() {
-    return {
+    const result = {
       stage: this.stage,
       message: this.message,
       retryable: this.retryable,
       detail: this.detail,
     };
+    if (this.status !== undefined) result.status = this.status;
+    return result;
   }
 }
 

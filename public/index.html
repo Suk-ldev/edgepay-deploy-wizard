@@ -92,6 +92,7 @@
       <table class="summary">
         <tbody>
           <tr><th>部署平台</th><td>Cloudflare Workers</td></tr>
+          <tr><th>操作方式</th><td id="summary-mode"></td></tr>
           <tr><th>项目名</th><td id="summary-project"></td></tr>
           <tr><th>管理员用户名</th><td id="summary-admin"></td></tr>
           <tr><th>Account ID</th><td id="summary-account"></td></tr>
@@ -111,8 +112,8 @@
     </section>
 
     <section class="screen" id="screen-4">
-      <h2>部署完成</h2>
-      <p class="hint warn">
+      <h2 id="complete-title">部署完成</h2>
+      <p class="hint warn" id="result-hint">
         下面这些信息只会显示这一次，现在就复制保存。插件/支付通道配置需要你登录后台手动完成。
       </p>
 
@@ -125,6 +126,16 @@
     </section>
 
   </main>
+
+  <dialog id="upgrade-dialog" class="confirm-dialog" aria-labelledby="upgrade-title">
+    <h2 id="upgrade-title">发现同名 Worker</h2>
+    <p id="upgrade-message"></p>
+    <p class="preserve-note">选择升级时只替换程序文件，原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由全部保留。</p>
+    <div class="actions">
+      <button class="btn btn-ghost" id="upgrade-rename" type="button">返回重设名称</button>
+      <button class="btn btn-primary" id="upgrade-confirm" type="button">这是原版本，开始升级</button>
+    </div>
+  </dialog>
 
   <footer class="foot">插件/通道配置需要在部署完成后登录后台设置 · <a href="/guide.html">安装与 Docker 教程</a></footer>
 </div>

@@ -1,137 +1,105 @@
 import { DeployError } from './errors.js';
 
-const INCLUDED_PREFIXES = ['src/'];
-const INCLUDED_EXACT = ['schema.sql'];
+const TEMPLATE_FILES = Object.freeze(['schema.sql', 'src/index.js']);
+const SHA_RE = /^[a-f0-9]{40}$/iu;
+const HASH_RE = /^[a-f0-9]{64}$/iu;
 
-/**
- * 纯函数：从 tar 包里解出来的路径列表中筛出这次部署真正需要的文件。
- * 只保留 src/** 和根目录 schema.sql。public/** 已生成进 src/bundled-assets.js，
- * 客户部署不再创建 KV 或 Static Assets 资源。
- */
-export function filterTemplatePaths(paths) {
-  return paths.filter(
-    (path) => INCLUDED_EXACT.includes(path) || INCLUDED_PREFIXES.some((prefix) => path.startsWith(prefix)),
+function encodePath(path) {
+  return String(path).split('/').filter(Boolean).map(encodeURIComponent).join('/');
+}
+
+function templatePath(path, subdir = '') {
+  const root = String(subdir).replace(/^\/+|\/+$/gu, '');
+  return root ? `${root}/${path}` : path;
+}
+
+function sourceCandidates({ owner, repo, sha, path, githubToken }) {
+  const encodedOwner = encodeURIComponent(owner);
+  const encodedRepo = encodeURIComponent(repo);
+  const encodedSha = encodeURIComponent(sha);
+  const encodedPath = encodePath(path);
+  const githubHeaders = { 'user-agent': 'edgepay-deploy-wizard' };
+  if (githubToken) githubHeaders.authorization = `Bearer ${githubToken}`;
+  return [
+    {
+      name: 'jsDelivr',
+      url: `https://cdn.jsdelivr.net/gh/${encodedOwner}/${encodedRepo}@${encodedSha}/${encodedPath}`,
+      options: { redirect: 'follow' },
+    },
+    {
+      name: 'GitHub Raw',
+      url: `https://raw.githubusercontent.com/${encodedOwner}/${encodedRepo}/${encodedSha}/${encodedPath}`,
+      options: { headers: githubHeaders, redirect: 'follow' },
+    },
+  ];
+}
+
+async function fetchPinnedFile(options) {
+  const failures = [];
+  for (const source of sourceCandidates(options)) {
+    try {
+      const response = await options.fetchImpl(source.url, source.options);
+      if (response.ok) {
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (bytes.length > 0) return bytes;
+        failures.push(`${source.name} 返回空文件`);
+      } else {
+        failures.push(`${source.name} 返回 ${response.status}`);
+      }
+    } catch (error) {
+      failures.push(`${source.name} 网络错误：${String(error)}`);
+    }
+  }
+  const retryable = !failures.every((item) => item.includes('返回 404'));
+  throw new DeployError(
+    'template_fetch',
+    `拉取模板文件 ${options.path} 失败（${failures.join('；')}）${retryable ? '，可以直接重试' : '，检查 TEMPLATE_COMMIT_SHA 是否正确'}`,
+    { retryable },
   );
 }
 
-function readCString(bytes, offset, length) {
-  let end = offset;
-  while (end < offset + length && bytes[end] !== 0) end++;
-  return new TextDecoder().decode(bytes.subarray(offset, end));
+async function sha256Hex(bytes) {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
 }
 
-function readOctal(bytes, offset, length) {
-  const str = readCString(bytes, offset, length).trim();
-  return str ? parseInt(str, 8) : 0;
-}
-
-/**
- * 极简 tar（POSIX ustar + GNU 长文件名扩展）解析：只处理普通文件条目，目录/pax 扩展头
- * 等一律跳过。GitHub 的仓库 tarball 使用这种格式，我们的文件路径都很短，
- * 不会触发长文件名之外的其他扩展头类型。
- */
-export function parseTar(bytes) {
-  const entries = [];
-  let offset = 0;
-  let longNameOverride = null;
-
-  while (offset + 512 <= bytes.length) {
-    const header = bytes.subarray(offset, offset + 512);
-    if (header.every((b) => b === 0)) break;
-
-    const size = readOctal(header, 124, 12);
-    const typeflag = String.fromCharCode(header[156]);
-    const prefix = readCString(header, 345, 155);
-    let name = readCString(header, 0, 100);
-    if (prefix) name = `${prefix}/${name}`;
-
-    offset += 512;
-    const data = bytes.subarray(offset, offset + size);
-    offset += Math.ceil(size / 512) * 512;
-
-    if (typeflag === 'L') {
-      longNameOverride = new TextDecoder().decode(data).replace(/\0+$/, '');
-      continue;
-    }
-    if (longNameOverride) {
-      name = longNameOverride;
-      longNameOverride = null;
-    }
-
-    // '0' 和 '\0' 都表示普通文件；'5' 是目录，'x'/'g' 是 pax 扩展头，其余一律忽略。
-    if (typeflag === '0' || typeflag === '\0') {
-      entries.push({ name, bytes: data });
-    }
+export async function fetchTemplateFiles({
+  owner,
+  repo,
+  sha,
+  subdir = '',
+  githubToken = '',
+  expectedHashes = {},
+  fetchImpl = fetch,
+}) {
+  if (!SHA_RE.test(String(sha ?? ''))) {
+    throw new DeployError('template_fetch', 'TEMPLATE_COMMIT_SHA 必须是完整的 40 位 commit SHA', { retryable: false });
   }
-
-  return entries;
-}
-
-/**
- * 把 GitHub 打包出来的路径（形如 "<repo>-<sha>/src/index.js"）去掉最外层那个目录名，
- * 变成相对仓库根目录的路径（"src/index.js"）。
- */
-export function stripTopLevelDir(name) {
-  const idx = name.indexOf('/');
-  return idx === -1 ? '' : name.slice(idx + 1);
-}
-
-/**
- * 可选地把 monorepo 子目录映射成模板根目录。
- * 例如 payment-worker/src/index.js -> src/index.js。
- */
-export function stripTemplateSubdir(path, subdir = '') {
-  const normalized = String(subdir).replace(/^\/+|\/+$/gu, '');
-  if (!normalized) return path;
-  const prefix = `${normalized}/`;
-  return path.startsWith(prefix) ? path.slice(prefix.length) : '';
-}
-
-export async function fetchTemplateFiles({ owner, repo, sha, subdir = '', githubToken = '', fetchImpl = fetch }) {
-  // 一次性拉整个仓库在这个 commit 的 tarball，而不是每个文件单独发一次请求——
-  // Workers 对单次请求里能发出的子请求数有硬性上限（免费版 50 个），模板有三十多个
-  // 文件，逐个 fetch 很容易把配额花在这一步，导致后面建表/上传步骤莫名其妙地失败。
-  // 通过 GitHub API 匿名获取公开商业发行仓库的固定 commit tarball；如配置了可选的
-  // GITHUB_TOKEN，则只用于扩充 API 限额。API 返回短时效下载地址，fetch 会自动跟随重定向。
-  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tarball/${encodeURIComponent(sha)}`;
-  const requestHeaders = {
-    accept: 'application/vnd.github+json',
-    'user-agent': 'edgepay-deploy-wizard',
-    'x-github-api-version': '2022-11-28',
-  };
-  if (githubToken) requestHeaders.authorization = `Bearer ${githubToken}`;
-  let response;
-  try {
-    response = await fetchImpl(url, { headers: requestHeaders, redirect: 'follow' });
-  } catch (networkError) {
-    throw new DeployError('template_fetch', `拉取模板 tarball 失败：${String(networkError)}`, { retryable: true });
-  }
-  if (!response.ok) {
-    throw new DeployError('template_fetch', `拉取模板 tarball 失败（GitHub 返回 ${response.status}），检查 TEMPLATE_COMMIT_SHA 是否正确`, {
-      retryable: true,
-    });
-  }
-
-  const decompressed = response.body.pipeThrough(new DecompressionStream('gzip'));
-  const tarBytes = new Uint8Array(await new Response(decompressed).arrayBuffer());
-  const rawEntries = parseTar(tarBytes);
 
   const files = [];
-  for (const entry of rawEntries) {
-    const repoPath = stripTopLevelDir(entry.name);
-    const path = stripTemplateSubdir(repoPath, subdir);
-    if (!path) continue;
-    files.push({ path, bytes: entry.bytes });
-  }
-
-  const filteredPaths = new Set(filterTemplatePaths(files.map((f) => f.path)));
-  const result = files.filter((f) => filteredPaths.has(f.path));
-
-  if (result.length === 0) {
-    throw new DeployError('template_fetch', '模板 tarball 里没有找到 src/ 或 schema.sql，检查 TEMPLATE_COMMIT_SHA 是否正确', {
-      retryable: false,
+  for (const path of TEMPLATE_FILES) {
+    const bytes = await fetchPinnedFile({
+      owner,
+      repo,
+      sha,
+      path: templatePath(path, subdir),
+      githubToken,
+      fetchImpl,
     });
+    const expected = String(expectedHashes[path] ?? '').trim().toLowerCase();
+    if (expected) {
+      if (!HASH_RE.test(expected)) {
+        throw new DeployError('template_fetch', `${path} 的预期 SHA-256 配置不合法`, { retryable: false });
+      }
+      const actual = await sha256Hex(bytes);
+      if (actual !== expected) {
+        throw new DeployError('template_fetch', `${path} 完整性校验失败，停止部署`, {
+          retryable: false,
+          detail: `expected=${expected}; actual=${actual}`,
+        });
+      }
+    }
+    files.push({ path, bytes });
   }
-
-  return result;
+  return files;
 }

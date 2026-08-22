@@ -1,90 +1,76 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  fetchTemplateFiles,
-  filterTemplatePaths,
-  stripTemplateSubdir,
-  stripTopLevelDir,
-} from '../src/lib/template-fetcher.js';
+import { fetchTemplateFiles } from '../src/lib/template-fetcher.js';
 
-const fixturePaths = [
-  'README.md',
-  'LICENSE',
-  'schema.sql',
-  'wrangler.toml.example',
-  'src/index.js',
-  'src/channels.js',
-  'public/index.html',
-  'public/cashier/index.html',
-  'qa/design-qa.md',
-  'agent/serverless-watcher/README.md',
-];
+const SHA = '0123456789abcdef0123456789abcdef01234567';
+const encoder = new TextEncoder();
 
-test('只保留内嵌资源后的 src/** 和根目录 schema.sql', () => {
-  const paths = filterTemplatePaths(fixturePaths);
-  assert.deepEqual(paths.sort(), [
-    'schema.sql',
-    'src/channels.js',
-    'src/index.js',
+function ok(text) {
+  return new Response(encoder.encode(text), { status: 200 });
+}
+
+test('固定 commit 只拉取商业发行所需的 schema 和单文件 Worker', async () => {
+  const urls = [];
+  const files = await fetchTemplateFiles({
+    owner: 'OWNER', repo: 'REPO', sha: SHA,
+    fetchImpl: async (url) => { urls.push(url); return ok(url.endsWith('schema.sql') ? 'schema' : 'worker'); },
+  });
+  assert.deepEqual(files.map((file) => file.path), ['schema.sql', 'src/index.js']);
+  assert.deepEqual(files.map((file) => new TextDecoder().decode(file.bytes)), ['schema', 'worker']);
+  assert.deepEqual(urls, [
+    `https://cdn.jsdelivr.net/gh/OWNER/REPO@${SHA}/schema.sql`,
+    `https://cdn.jsdelivr.net/gh/OWNER/REPO@${SHA}/src/index.js`,
   ]);
 });
 
-test('忽略 README、LICENSE、wrangler.toml.example、qa/、agent/ 等无关文件', () => {
-  const paths = filterTemplatePaths(fixturePaths);
-  assert.ok(!paths.includes('README.md'));
-  assert.ok(!paths.includes('LICENSE'));
-  assert.ok(!paths.includes('wrangler.toml.example'));
-  assert.ok(!paths.some((p) => p.startsWith('qa/')));
-  assert.ok(!paths.some((p) => p.startsWith('agent/')));
+test('jsDelivr 失败时回退到 GitHub Raw，不再下载 tarball', async () => {
+  const requests = [];
+  const files = await fetchTemplateFiles({
+    owner: 'OWNER', repo: 'REPO', sha: SHA, githubToken: 'TOKEN_VALUE',
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      if (url.includes('cdn.jsdelivr.net')) return new Response('', { status: 504 });
+      return ok(url.endsWith('schema.sql') ? 'schema' : 'worker');
+    },
+  });
+  assert.equal(files.length, 2);
+  assert.equal(requests.length, 4);
+  assert.equal(requests[1].url, `https://raw.githubusercontent.com/OWNER/REPO/${SHA}/schema.sql`);
+  assert.equal(requests[1].options.headers.authorization, 'Bearer TOKEN_VALUE');
+  assert.ok(requests.every(({ url }) => !url.includes('/tarball/')));
 });
 
-test('空列表返回空数组', () => {
-  assert.deepEqual(filterTemplatePaths([]), []);
-});
-
-test('stripTopLevelDir 去掉 GitHub tarball 最外层目录名', () => {
-  assert.equal(stripTopLevelDir('edgepay-serverless-payment-abc123/src/index.js'), 'src/index.js');
-  assert.equal(stripTopLevelDir('edgepay-serverless-payment-abc123/'), '');
-  assert.equal(stripTopLevelDir('edgepay-serverless-payment-abc123'), '');
-});
-
-test('stripTemplateSubdir 支持从合并仓库读取 payment-worker 模板', () => {
-  assert.equal(stripTemplateSubdir('payment-worker/src/index.js', 'payment-worker'), 'src/index.js');
-  assert.equal(stripTemplateSubdir('payment-worker/schema.sql', '/payment-worker/'), 'schema.sql');
-  assert.equal(stripTemplateSubdir('watcher/watcher.mjs', 'payment-worker'), '');
-  assert.equal(stripTemplateSubdir('src/index.js'), 'src/index.js');
-});
-
-test('公开商业模板默认匿名读取固定 commit', async () => {
-  let captured;
-  const fetchImpl = async (url, options) => {
-    captured = { url, options };
-    return new Response('', { status: 404 });
-  };
+test('双源都失败时给出可重试错误', async () => {
   await assert.rejects(
     fetchTemplateFiles({
-      owner: 'OWNER', repo: 'REPO', sha: 'COMMIT_SHA', fetchImpl,
+      owner: 'OWNER', repo: 'REPO', sha: SHA,
+      fetchImpl: async () => new Response('', { status: 504 }),
     }),
-    /GitHub 返回 404/u,
+    (error) => error.stage === 'template_fetch' && error.retryable && /jsDelivr 返回 504/u.test(error.message),
   );
-  assert.equal(captured.url, 'https://api.github.com/repos/OWNER/REPO/tarball/COMMIT_SHA');
-  assert.equal(captured.options.headers.authorization, undefined);
-  assert.equal(captured.options.redirect, 'follow');
 });
 
-test('可选 GitHub Token 只用于公开模板 API 限额扩容', async () => {
-  let captured;
-  const fetchImpl = async (url, options) => {
-    captured = { url, options };
-    return new Response('', { status: 404 });
-  };
+test('完整 SHA 和文件哈希不匹配时停止部署', async () => {
   await assert.rejects(
     fetchTemplateFiles({
-      owner: 'OWNER', repo: 'REPO', sha: 'COMMIT_SHA', githubToken: 'TOKEN_VALUE', fetchImpl,
+      owner: 'OWNER', repo: 'REPO', sha: SHA,
+      expectedHashes: { 'schema.sql': '0'.repeat(64) },
+      fetchImpl: async (url) => ok(url.endsWith('schema.sql') ? 'schema' : 'worker'),
     }),
-    /GitHub 返回 404/u,
+    /完整性校验失败/u,
   );
-  assert.equal(captured.url, 'https://api.github.com/repos/OWNER/REPO/tarball/COMMIT_SHA');
-  assert.equal(captured.options.headers.authorization, 'Bearer TOKEN_VALUE');
-  assert.equal(captured.options.redirect, 'follow');
+  await assert.rejects(
+    fetchTemplateFiles({ owner: 'OWNER', repo: 'REPO', sha: 'main', fetchImpl: async () => ok('x') }),
+    /40 位 commit SHA/u,
+  );
+});
+
+test('合并仓库子目录会加入远程文件路径，但返回部署路径保持不变', async () => {
+  const urls = [];
+  const files = await fetchTemplateFiles({
+    owner: 'OWNER', repo: 'REPO', sha: SHA, subdir: '/payment-worker/',
+    fetchImpl: async (url) => { urls.push(url); return ok('content'); },
+  });
+  assert.ok(urls.every((url) => url.includes('/payment-worker/')));
+  assert.deepEqual(files.map((file) => file.path), ['schema.sql', 'src/index.js']);
 });

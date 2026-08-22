@@ -45,6 +45,7 @@ export class CloudflareClient {
       throw new DeployError(stage ?? 'cf_request', messages || `Cloudflare API 返回错误状态 ${response.status}`, {
         retryable: response.status >= 500,
         detail: redact(JSON.stringify(json), [this.apiToken]),
+        status: response.status,
       });
     }
 

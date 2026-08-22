@@ -119,6 +119,12 @@ body {
 .screen { display: none; }
 .screen.active { display: block; }
 
+.confirm-dialog { width:min(520px,calc(100vw - 28px)); padding:26px; border:1px solid var(--line); border-radius:14px; color:var(--ink); background:var(--surface); box-shadow:0 24px 80px #000b; }
+.confirm-dialog::backdrop { background:#05070bc7; backdrop-filter:blur(4px); }
+.confirm-dialog h2 { margin:0 0 12px; font-size:20px; }
+.confirm-dialog p { margin:0 0 12px; color:var(--muted); font-size:13px; }
+.confirm-dialog .preserve-note { padding:12px 14px; border:1px solid color-mix(in srgb,var(--accent) 42%,var(--line)); border-radius:8px; color:#cdd7ff; background:color-mix(in srgb,var(--accent) 8%,transparent); }
+
 h1 { font-size: 20px; margin: 0 0 8px; }
 
 .hint {

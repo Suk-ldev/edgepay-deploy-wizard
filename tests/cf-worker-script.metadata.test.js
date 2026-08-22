@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildScriptMetadata } from '../src/lib/cf-worker-script.js';
+import { buildScriptMetadata, uploadWorkerContent } from '../src/lib/cf-worker-script.js';
 
 test('metadata 只包含 D1、明文变量和密钥，不创建 KV/Assets 绑定', () => {
   const metadata = buildScriptMetadata({
@@ -42,4 +42,22 @@ test('secret 和 plain_text 不会互相混淆成同一种类型', () => {
   });
   const typesForA = metadata.bindings.filter((b) => b.name === 'A').map((b) => b.type);
   assert.deepEqual(typesForA.sort(), ['plain_text', 'secret_text']);
+});
+
+test('无损升级使用 content 接口，只上传程序文件而不提交 bindings', async () => {
+  let captured;
+  const client = {
+    async putMultipart(path, form) {
+      captured = { path, form };
+      return { result: { ok: true } };
+    },
+  };
+  await uploadWorkerContent(client, 'account', 'edgepay', {
+    sourceFiles: [{ path: 'index.js', content: 'export default {}' }],
+  });
+  assert.equal(captured.path, '/accounts/account/workers/scripts/edgepay/content');
+  const metadata = JSON.parse(await captured.form.get('metadata').text());
+  assert.deepEqual(metadata, { main_module: 'index.js' });
+  assert.equal('bindings' in metadata, false);
+  assert.equal(await captured.form.get('index.js').text(), 'export default {}');
 });

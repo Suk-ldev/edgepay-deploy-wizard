@@ -35,7 +35,7 @@ export async function createDatabase(client, accountId, name) {
   }
 }
 
-export async function applySchema(client, accountId, databaseId, schemaText) {
+export async function applySchema(client, accountId, databaseId, schemaText, { upgrade = false } = {}) {
   const statements = splitStatements(schemaText);
   for (let i = 0; i < statements.length; i++) {
     const sql = statements[i];
@@ -48,7 +48,9 @@ export async function applySchema(client, accountId, databaseId, schemaText) {
     } catch (err) {
       throw new DeployError(
         'd1_schema',
-        `建表在第 ${i + 1}/${statements.length} 条语句失败，数据库处于不完整状态，请删除后重试：${err.message}`,
+        upgrade
+          ? `升级数据库结构时第 ${i + 1}/${statements.length} 条语句失败，Worker 程序尚未更新：${err.message}`
+          : `建表在第 ${i + 1}/${statements.length} 条语句失败，数据库处于不完整状态，请删除后重试：${err.message}`,
         { retryable: false, detail: err instanceof DeployError ? err.detail : String(err) },
       );
     }

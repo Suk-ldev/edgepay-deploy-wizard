@@ -57,3 +57,28 @@ export async function uploadWorkerScript(client, accountId, scriptName, {
     );
   }
 }
+
+export async function uploadWorkerContent(client, accountId, scriptName, { sourceFiles }) {
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify({ main_module: 'index.js' })], { type: 'application/json' }), 'metadata.json');
+  for (const file of sourceFiles) {
+    form.append(
+      file.path,
+      new Blob([file.content], { type: 'application/javascript+module' }),
+      file.path,
+    );
+  }
+  try {
+    const json = await client.putMultipart(
+      `/accounts/${accountId}/workers/scripts/${encodeURIComponent(scriptName)}/content`,
+      form,
+      { stage: 'script_upload' },
+    );
+    return json.result;
+  } catch (error) {
+    throw new DeployError('script_upload', `Worker 程序升级失败：${error.message}`, {
+      retryable: error instanceof DeployError ? error.retryable : false,
+      detail: error instanceof DeployError ? error.detail : String(error),
+    });
+  }
+}

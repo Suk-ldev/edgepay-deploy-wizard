@@ -6,12 +6,14 @@ const state = {
   publicBaseUrl: '',
   edgepayLicense: '',
   licenseInfo: null,
+  mode: 'install',
 };
 
 const STEP_LABELS = {
   validate: '校验输入',
   verify_token: '校验 Cloudflare Token',
   license_verify: '校验 EdgePay License',
+  project_check: '检查同名 Worker',
   template_fetch: '拉取模板源码',
   d1_create: '创建 D1 数据库',
   d1_schema: '建表',
@@ -38,6 +40,29 @@ function showScreen(n) {
 function maskToken(token) {
   if (token.length <= 8) return '••••••••';
   return `${token.slice(0, 4)}${'•'.repeat(8)}${token.slice(-4)}`;
+}
+
+const initialQuery = new URLSearchParams(location.search);
+if (initialQuery.get('project')) $('projectName').value = initialQuery.get('project');
+if (initialQuery.get('publicBaseUrl')) $('publicBaseUrl').value = initialQuery.get('publicBaseUrl');
+
+function confirmUpgrade(projectName, compatible) {
+  const dialog = $('upgrade-dialog');
+  const confirmButton = $('upgrade-confirm');
+  $('upgrade-message').textContent = compatible
+    ? `Cloudflare 账号中已经有名为 ${projectName} 的 EdgePay Worker。请确认它是不是你原来部署的版本。`
+    : `Cloudflare 账号中已经有名为 ${projectName} 的 Worker，但没有识别到完整的 EdgePay 配置。为避免覆盖其他项目，请重新设置名称。`;
+  confirmButton.hidden = !compatible;
+  dialog.showModal();
+  return new Promise((resolve) => {
+    const finish = (choice) => {
+      dialog.close();
+      resolve(choice);
+    };
+    confirmButton.onclick = () => finish('upgrade');
+    $('upgrade-rename').onclick = () => finish('rename');
+    dialog.oncancel = (event) => { event.preventDefault(); finish('rename'); };
+  });
 }
 
 // --- Step 1: Cloudflare credentials ---
@@ -141,6 +166,25 @@ $('step2-next').addEventListener('click', async () => {
     }
     statusEl.textContent = `✓ 已验证：${result.domain} · ${result.entitlements.length} 个插件`;
     statusEl.classList.add('ok');
+
+    button.textContent = '检查项目名…';
+    const projectResponse = await fetch('/api/check-project', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ cfApiToken: state.cfApiToken, cfAccountId: state.cfAccountId, projectName }),
+    });
+    const projectState = await projectResponse.json();
+    if (!projectResponse.ok || !projectState.ok) throw new Error(projectState.error || '检查同名 Worker 失败');
+    state.mode = 'install';
+    if (projectState.exists) {
+      const choice = await confirmUpgrade(projectName, projectState.compatible);
+      if (choice !== 'upgrade') {
+        $('projectName').value = '';
+        $('projectName').focus();
+        errorEl.textContent = '请重新填写一个未被占用的项目名。';
+        return;
+      }
+      state.mode = 'upgrade';
+    }
   } catch (error) {
     errorEl.textContent = error.message;
     statusEl.textContent = 'License 校验未通过';
@@ -158,12 +202,14 @@ $('step2-next').addEventListener('click', async () => {
   state.licenseInfo = licenseInfo;
 
   $('summary-project').textContent = projectName;
-  $('summary-admin').textContent = adminUsername;
+  $('summary-mode').textContent = state.mode === 'upgrade' ? '无损升级（保留原配置）' : '新建部署';
+  $('summary-admin').textContent = state.mode === 'upgrade' ? '保留原管理员设置' : adminUsername;
   $('summary-account').textContent = state.cfAccountId;
   $('summary-token').textContent = maskToken(state.cfApiToken);
   $('summary-license').textContent = `${licenseInfo.domain} · ${licenseInfo.entitlements.length} 个插件 · ${maskToken(edgepayLicense)}`;
 
   showScreen(3);
+  $('deploy-btn').textContent = state.mode === 'upgrade' ? '开始升级' : '开始部署';
 });
 
 // --- Step 3: confirm & deploy ---
@@ -212,6 +258,7 @@ $('deploy-btn').addEventListener('click', async () => {
         adminUsername: state.adminUsername,
         publicBaseUrl: state.publicBaseUrl || undefined,
         edgepayLicense: state.edgepayLicense || undefined,
+        mode: state.mode,
       }),
     });
 
@@ -254,7 +301,7 @@ $('deploy-btn').addEventListener('click', async () => {
     errorEl.textContent = '部署进度连接中断，请确认网络后重试；已完成的 D1 数据库会自动复用。';
   } finally {
     btn.disabled = false;
-    btn.textContent = '开始部署';
+    btn.textContent = state.mode === 'upgrade' ? '开始升级' : '开始部署';
     $('step3-back').disabled = false;
   }
 });
@@ -282,13 +329,21 @@ function resultRow(label, value) {
 function renderResult(result) {
   const list = $('result-list');
   list.innerHTML = '';
+  $('complete-title').textContent = result.mode === 'upgrade' ? '升级完成' : '部署完成';
+  $('result-hint').textContent = result.mode === 'upgrade'
+    ? '程序已升级，原配置和数据保持不变。'
+    : '下面这些信息只会显示这一次，现在就复制保存。插件和支付通道需要登录后台配置。';
   list.appendChild(resultRow('访问地址', result.workersDevUrl));
   list.appendChild(resultRow('管理后台', result.adminUrl));
-  list.appendChild(resultRow('管理员用户名', result.adminUsername));
-  list.appendChild(resultRow('管理员密码 (ADMIN_TOKEN)', result.ADMIN_TOKEN));
-  list.appendChild(resultRow('EPAY_KEY', result.EPAY_KEY));
-  list.appendChild(resultRow('POLL_TRIGGER_TOKEN', result.POLL_TRIGGER_TOKEN));
-  list.appendChild(resultRow('CONFIG_ENCRYPTION_KEY', result.CONFIG_ENCRYPTION_KEY));
-  list.appendChild(resultRow('WATCHER_TRANSPORT_SECRET（Docker TRANSPORT_KEY）', result.WATCHER_TRANSPORT_SECRET));
+  if (result.mode === 'upgrade') {
+    list.appendChild(resultRow('保留内容', 'D1、插件配置、支付通道、环境变量、Secrets、定时任务和路由'));
+  } else {
+    list.appendChild(resultRow('管理员用户名', result.adminUsername));
+    list.appendChild(resultRow('管理员密码 (ADMIN_TOKEN)', result.ADMIN_TOKEN));
+    list.appendChild(resultRow('EPAY_KEY', result.EPAY_KEY));
+    list.appendChild(resultRow('POLL_TRIGGER_TOKEN', result.POLL_TRIGGER_TOKEN));
+    list.appendChild(resultRow('CONFIG_ENCRYPTION_KEY', result.CONFIG_ENCRYPTION_KEY));
+    list.appendChild(resultRow('WATCHER_TRANSPORT_SECRET（Docker TRANSPORT_KEY）', result.WATCHER_TRANSPORT_SECRET));
+  }
   $('open-admin').href = result.adminUrl;
 }

@@ -2,13 +2,14 @@ import { readConfig } from './config.js';
 import { CloudflareClient } from './lib/cf-client.js';
 import { verifyToken } from './lib/cf-token.js';
 import { createDatabase, applySchema } from './lib/cf-d1.js';
-import { uploadWorkerScript } from './lib/cf-worker-script.js';
+import { uploadWorkerContent, uploadWorkerScript } from './lib/cf-worker-script.js';
 import { enableWorkersDevSubdomain } from './lib/cf-subdomain.js';
 import { generateDeploySecrets } from './lib/secret-generator.js';
 import { fetchTemplateFiles } from './lib/template-fetcher.js';
 import { createProgressStream, STEP_LABELS } from './lib/progress-stream.js';
 import { DeployError, redact } from './lib/errors.js';
 import { licenseFetcher, normalizePublicBaseUrl, verifyLicense } from './lib/license-verifier.js';
+import { inspectWorker } from './lib/cf-worker-state.js';
 
 const PROJECT_NAME_RE = /^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/;
 const ACCOUNT_ID_RE = /^[a-f0-9]{32}$/i;
@@ -19,6 +20,9 @@ export function validateInput(body) {
   if (!body?.cfAccountId || !ACCOUNT_ID_RE.test(body.cfAccountId)) errors.cfAccountId = 'Account ID 应该是 32 位十六进制字符串';
   if (!body?.projectName || !PROJECT_NAME_RE.test(body.projectName)) {
     errors.projectName = '项目名只能包含小写字母、数字和短横线，且不能以短横线开头或结尾，最长 58 个字符';
+  }
+  if (body?.mode !== undefined && !['install', 'upgrade'].includes(body.mode)) {
+    errors.mode = '部署方式只能是 install 或 upgrade';
   }
   if (body?.adminUsername !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(body.adminUsername)) {
     errors.adminUsername = '管理员用户名格式不对';
@@ -46,6 +50,7 @@ export async function handleDeploy(request, env) {
   }
 
   const { cfApiToken, cfAccountId, projectName } = body;
+  const mode = body.mode === 'upgrade' ? 'upgrade' : 'install';
   const adminUsername = body.adminUsername || 'admin';
   let publicBaseUrl = normalizePublicBaseUrl(body.publicBaseUrl);
   const config = readConfig(env);
@@ -77,6 +82,23 @@ export async function handleDeploy(request, env) {
       }
       await emit({ ...step('license_verify'), status: 'done', detail: `${licenseInfo.domain} · ${licenseInfo.entitlements.length} 个插件` });
 
+      await emit({ ...step('project_check'), status: 'started' });
+      const existingWorker = await inspectWorker(client, cfAccountId, projectName);
+      if (mode === 'upgrade') {
+        if (!existingWorker.exists) {
+          throw new DeployError('project_check', '没有找到同名 Worker，请返回并选择新建部署', { retryable: false });
+        }
+        if (!existingWorker.compatible) {
+          throw new DeployError('project_check', '同名 Worker 不是可识别的 EdgePay 商业版，已停止升级', { retryable: false });
+        }
+        await emit({ ...step('project_check'), status: 'done', detail: '已确认原 EdgePay，保留现有配置' });
+      } else {
+        if (existingWorker.exists) {
+          throw new DeployError('project_check', '同名 Worker 已存在，请返回确认升级或更换项目名', { retryable: false });
+        }
+        await emit({ ...step('project_check'), status: 'done', detail: '项目名可用' });
+      }
+
       await emit({ ...step('template_fetch'), status: 'started' });
       const files = await fetchTemplateFiles({
         owner: config.templateOwner,
@@ -84,6 +106,10 @@ export async function handleDeploy(request, env) {
         sha: config.templateSha,
         subdir: config.templateSubdir,
         githubToken: config.githubToken,
+        expectedHashes: {
+          'src/index.js': config.templateEntrySha256,
+          'schema.sql': config.templateSchemaSha256,
+        },
       });
       const srcFiles = files
         .filter((f) => f.path.startsWith('src/'))
@@ -94,37 +120,55 @@ export async function handleDeploy(request, env) {
       await emit({ ...step('template_fetch'), status: 'done', detail: `${files.length} 个文件` });
 
       await emit({ ...step('d1_create'), status: 'started' });
-      const database = await createDatabase(client, cfAccountId, projectName);
-      const databaseId = database.databaseId;
-      await emit({ ...step('d1_create'), status: 'done', detail: database.reused ? `${databaseId}（复用现有数据库）` : databaseId });
+      let databaseId;
+      if (mode === 'upgrade') {
+        databaseId = existingWorker.databaseId;
+        await emit({ ...step('d1_create'), status: 'done', detail: '保留并复用原 D1 数据库' });
+      } else {
+        const database = await createDatabase(client, cfAccountId, projectName);
+        databaseId = database.databaseId;
+        await emit({ ...step('d1_create'), status: 'done', detail: database.reused ? `${databaseId}（复用现有数据库）` : databaseId });
+      }
 
       await emit({ ...step('d1_schema'), status: 'started' });
-      const statementCount = await applySchema(client, cfAccountId, databaseId, schemaText);
+      const statementCount = await applySchema(client, cfAccountId, databaseId, schemaText, { upgrade: mode === 'upgrade' });
       await emit({ ...step('d1_schema'), status: 'done', detail: `${statementCount} 条语句` });
 
       await emit({ ...step('generate_secrets'), status: 'started' });
-      const deploySecrets = generateDeploySecrets();
-      deploySecrets.EDGEPAY_LICENSE = String(body.edgepayLicense);
-      secrets.push(...Object.values(deploySecrets));
-      await emit({ ...step('generate_secrets'), status: 'done' });
+      const deploySecrets = mode === 'upgrade' ? {} : generateDeploySecrets();
+      if (mode === 'upgrade') {
+        await emit({ ...step('generate_secrets'), status: 'done', detail: '保留现有 Secrets 和环境变量' });
+      } else {
+        deploySecrets.EDGEPAY_LICENSE = String(body.edgepayLicense);
+        secrets.push(...Object.values(deploySecrets));
+        await emit({ ...step('generate_secrets'), status: 'done' });
+      }
 
       await emit({ ...step('script_upload'), status: 'started' });
       const placeholderBaseUrl = publicBaseUrl || `https://${projectName}.workers.dev`;
-      await uploadWorkerScript(client, cfAccountId, projectName, {
-        sourceFiles: srcFiles,
-        databaseId,
-        secrets: deploySecrets,
-        vars: {
-          PUBLIC_BASE_URL: placeholderBaseUrl,
-          EPAY_PID: '1000',
-          ADMIN_USERNAME: adminUsername,
-        },
-      });
-      await emit({ ...step('script_upload'), status: 'done' });
+      if (mode === 'upgrade') {
+        await uploadWorkerContent(client, cfAccountId, projectName, { sourceFiles: srcFiles });
+        await emit({ ...step('script_upload'), status: 'done', detail: '程序已更新，配置未改动' });
+      } else {
+        await uploadWorkerScript(client, cfAccountId, projectName, {
+          sourceFiles: srcFiles,
+          databaseId,
+          secrets: deploySecrets,
+          vars: {
+            PUBLIC_BASE_URL: placeholderBaseUrl,
+            EPAY_PID: '1000',
+            ADMIN_USERNAME: adminUsername,
+            EDGEPAY_PROJECT_NAME: projectName,
+          },
+        });
+        await emit({ ...step('script_upload'), status: 'done' });
+      }
 
       await emit({ ...step('enable_subdomain'), status: 'started' });
-      const workersDevUrl = await enableWorkersDevSubdomain(client, cfAccountId, projectName);
-      await emit({ ...step('enable_subdomain'), status: 'done', detail: workersDevUrl });
+      const workersDevUrl = mode === 'upgrade'
+        ? publicBaseUrl
+        : await enableWorkersDevSubdomain(client, cfAccountId, projectName);
+      await emit({ ...step('enable_subdomain'), status: 'done', detail: mode === 'upgrade' ? '保留原访问地址和路由' : workersDevUrl });
 
       await emit({
         stage: 'complete',
@@ -133,8 +177,11 @@ export async function handleDeploy(request, env) {
           workersDevUrl,
           adminUrl: `${workersDevUrl}/admin`,
           adminUsername,
+          mode,
           ...deploySecrets,
-          note: '如果之后绑定了自定义域名，记得回后台把 PUBLIC_BASE_URL 改成正式域名并重新部署一次。',
+          note: mode === 'upgrade'
+            ? '升级完成；原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由均已保留。'
+            : '如果之后绑定了自定义域名，记得回后台把 PUBLIC_BASE_URL 改成正式域名并重新部署一次。',
         },
       });
     } catch (err) {

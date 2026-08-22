@@ -15,11 +15,11 @@ const STEP_LABELS = {
   license_verify: '校验 EdgePay License',
   project_check: '检查同名 Worker',
   template_fetch: '拉取模板源码',
-  d1_create: '创建 D1 数据库',
+  d1_create: '准备 D1 数据库',
   d1_schema: '建表',
-  generate_secrets: '生成密钥',
+  generate_secrets: '准备密钥与配置',
   script_upload: '上传 Worker 脚本',
-  enable_subdomain: '开启 workers.dev 子域名',
+  enable_subdomain: '准备访问地址',
 };
 const STEP_ORDER = Object.keys(STEP_LABELS);
 

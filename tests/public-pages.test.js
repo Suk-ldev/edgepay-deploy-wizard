@@ -6,9 +6,11 @@ test('部署站点包含图标、License 获取入口和 Docker 教程', async (
   const index = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   const guide = await readFile(new URL('../public/guide.html', import.meta.url), 'utf8');
   const icon = await readFile(new URL('../public/favicon.svg', import.meta.url), 'utf8');
+  const tokenExample = await readFile(new URL('../public/cloudflare-token-example.png', import.meta.url));
   assert.match(index, /rel="icon" href="\/favicon\.svg"/u);
-  assert.match(index, /wizard\.css\?v=20260822-5/u);
-  assert.match(index, /wizard\.js\?v=20260822-5/u);
+  assert.match(index, /wizard\.css\?v=20260824-1/u);
+  assert.match(index, /wizard\.js\?v=20260824-1/u);
+  assert.match(index, /cloudflare-token-example\.png/u);
   assert.match(index, /https:\/\/license\.imsuk\.cn/u);
   assert.match(index, /id="edgepayLicense"[^>]+required/u);
   assert.match(index, /id="adminPassword"/u);
@@ -37,5 +39,7 @@ test('部署站点包含图标、License 获取入口和 Docker 教程', async (
   assert.match(guide, /License 域名直接绑定到支付 Worker/u);
   assert.match(guide, /不启用 <code>workers\.dev<\/code>/u);
   assert.match(guide, /原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由都会保留/u);
+  assert.match(guide, /cloudflare-token-example\.png/u);
   assert.match(icon, /<svg/u);
+  assert.ok(tokenExample.length > 10_000);
 });

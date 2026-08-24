@@ -19,7 +19,7 @@
 <li>客户项目只创建一个 D1；收银台和后台文件已内嵌到 Worker，不会上传 KV 或 Workers Static Assets，因此不会占用对应的存储/命名空间限额。</li>
 <li>确认后开始部署，保存完成页显示的所有密钥，尤其是 <code>ADMIN_TOKEN</code> 和 <code>WATCHER_TRANSPORT_SECRET</code>。</li>
 <li>向导会把 License 域名直接绑定到支付 Worker，不启用 <code>workers.dev</code>；该域名必须位于当前 Cloudflare 账号。</li>
-</ol></div></section>
+</ol><p>Token 权限按下图配置：账户级 <code>D1:Edit</code> 与 <code>Workers Scripts:Edit</code>，账户资源选择实际部署账号。</p><img class="guide-shot" src="/cloudflare-token-example.png" alt="Cloudflare API Token 权限配置示例" loading="lazy"></div></section>
 
 <section><div class="number">03</div><div><h2>无损升级</h2><ol>
 <li>管理后台发现新版本时，点击“前往升级”；也可以直接打开 <a href="https://deploy.imsuk.cn">deploy.imsuk.cn</a>。</li>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>一键部署 EdgePay</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-<link rel="stylesheet" href="/wizard.css?v=20260822-5" />
+<link rel="stylesheet" href="/wizard.css?v=20260824-1" />
 </head>
 <body>
 <div class="page">
@@ -33,6 +33,12 @@
         客户项目只使用一个 D1，前端资源随 Worker 模块发布，不创建 KV 或 Static Assets。
         <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">去 Cloudflare 建一个 →</a>
       </p>
+
+      <details class="token-help">
+        <summary>查看 API Token 权限配置示例</summary>
+        <p>创建自定义令牌，添加“账户 · D1 · 编辑”和“账户 · Workers 脚本 · 编辑”，账户资源选择需要部署 EdgePay 的账号。不要设置客户端 IP 限制；TTL 可以按自己的运维要求填写。</p>
+        <img src="/cloudflare-token-example.png" alt="Cloudflare 自定义 API Token 权限配置示例：D1 编辑、Workers 脚本编辑、账户资源范围" loading="lazy" />
+      </details>
 
       <label class="field">
         <span>Cloudflare API Token</span>
@@ -159,6 +165,6 @@
   <footer class="foot">插件/通道配置需要在部署完成后登录后台设置 · <a href="/guide.html">安装与 Docker 教程</a></footer>
 </div>
 
-<script src="/wizard.js?v=20260822-5"></script>
+<script src="/wizard.js?v=20260824-1"></script>
 </body>
 </html>

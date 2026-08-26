@@ -29,6 +29,13 @@ test('新建部署必须填写管理员密码，Watcher 通信密钥可以留空
   assert.equal(validateInput({ ...valid, watcherTransportSecret: 'watcher-custom-secret-2026' }).watcherTransportSecret, undefined);
 });
 
+test('后台定时轮询开关只接受布尔值，缺省时不报错', () => {
+  assert.equal(validateInput(valid).enableCron, undefined);
+  assert.equal(validateInput({ ...valid, enableCron: true }).enableCron, undefined);
+  assert.equal(validateInput({ ...valid, enableCron: false }).enableCron, undefined);
+  assert.match(validateInput({ ...valid, enableCron: 'yes' }).enableCron, /布尔值/u);
+});
+
 test('无损升级保留原密码与通信密钥，不要求重新填写', () => {
   const errors = validateInput({ ...valid, mode: 'upgrade', adminPassword: '', watcherTransportSecret: '' });
   assert.equal(errors.adminPassword, undefined);

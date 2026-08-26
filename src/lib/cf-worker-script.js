@@ -18,8 +18,26 @@ export function buildScriptMetadata({ databaseId, secrets, vars, mainModule = 'i
     main_module: mainModule,
     compatibility_date: new Date().toISOString().slice(0, 10),
     bindings,
-    triggers: { crons: ['* * * * *'] },
   };
+}
+
+// Cron 触发器不能通过脚本上传的 metadata 注册（该字段会被 Cloudflare 忽略），
+// 必须单独调用 schedules 接口。传入空数组即清除全部定时任务。
+export async function setWorkerCronSchedules(client, accountId, scriptName, crons = []) {
+  const body = crons.map((cron) => ({ cron }));
+  try {
+    const json = await client.putJSON(
+      `/accounts/${accountId}/workers/scripts/${encodeURIComponent(scriptName)}/schedules`,
+      body,
+      { stage: 'schedule_cron' },
+    );
+    return json.result;
+  } catch (error) {
+    throw new DeployError('schedule_cron', `后台定时轮询（Cron）注册失败：${error.message}`, {
+      retryable: error instanceof DeployError ? error.retryable : false,
+      detail: error instanceof DeployError ? error.detail : String(error),
+    });
+  }
 }
 
 /**

@@ -2,7 +2,7 @@
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>EdgePay 安装与 Docker 教程</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/guide.css"></head>
 <body><header><a class="brand" href="/"><img src="/favicon.svg" alt="">EdgePay</a><a href="/">返回部署向导</a></header>
-<main><section class="intro"><p class="eyebrow">INSTALLATION GUIDE</p><h1>从 License 到 Docker watcher</h1><p>按顺序完成授权、Worker 部署和容器监听器配置。</p></section>
+<main><section class="intro"><p class="eyebrow">INSTALLATION GUIDE</p><h1>从 License 到首个收款通道</h1><p>按顺序完成授权、Worker 部署、收款平台配置、编号识别和 Docker Watcher。</p></section>
 
 <section><div class="number">01</div><div><h2>获取永久 License</h2><ol>
 <li>打开 <a href="https://license.imsuk.cn" target="_blank" rel="noopener">license.imsuk.cn</a>。</li>
@@ -21,14 +21,7 @@
 <li>向导会把 License 域名直接绑定到支付 Worker，不启用 <code>workers.dev</code>；该域名必须位于当前 Cloudflare 账号。</li>
 </ol><p>Token 权限按下图配置：账户级 <code>D1:Edit</code> 与 <code>Workers Scripts:Edit</code>，账户资源选择实际部署账号。</p><img class="guide-shot" src="/cloudflare-token-example.png" alt="Cloudflare API Token 权限配置示例" loading="lazy"></div></section>
 
-<section><div class="number">03</div><div><h2>无损升级</h2><ol>
-<li>管理后台发现新版本时，点击“前往升级”；也可以直接打开 <a href="https://deploy.imsuk.cn">deploy.imsuk.cn</a>。</li>
-<li>填写原 Cloudflare 账号、原 Worker 项目名、公开访问地址和 License。</li>
-<li>向导发现同名 EdgePay 后会弹窗询问。确认升级后只替换程序文件。</li>
-<li>原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由都会保留，不需要重新填写后台配置。</li>
-</ol><div class="notice">如果同名 Worker 不是原 EdgePay，选择返回并重新填写项目名，向导不会覆盖它。</div></div></section>
-
-<section><div class="number">04</div><div><h2>启动 Docker watcher</h2><p>公开镜像同时提供 AMD64 与 ARM64 版本：</p>
+<section><div class="number">03</div><div><h2>按插件需要启动 Docker watcher</h2><p>付呗、收钱吧等能由 Worker 直接查询的平台可以先跳过本节。富友、拉卡拉普通版、星驿付普通版、天阙会生活、易宝老板管账、易生收款啦和盛付通必须保持 Docker 在线。公开镜像同时提供 AMD64 与 ARM64 版本：</p>
 <pre><button data-copy>复制</button><code>docker pull ghcr.io/suk-ldev/edgepay-watcher:latest</code></pre>
 <p>新建目录并创建 <code>.env</code>：</p><pre><button data-copy>复制</button><code>mkdir -p edgepay-watcher/storage
 cd edgepay-watcher
@@ -60,7 +53,24 @@ docker compose ps
 docker compose logs -f --tail=100</code></pre>
 <div class="notice">Worker Secret <code>WATCHER_TRANSPORT_SECRET</code> 与容器 <code>TRANSPORT_KEY</code> 必须完全一致；Worker 和容器也必须填写同一 License。</div></div></section>
 
-<section><div class="number">05</div><div><h2>更新与排错</h2><pre><button data-copy>复制</button><code># 更新镜像
+<section><div class="number">04</div><div><h2>配置收款插件并查出平台编号</h2><ol>
+<li>登录支付站的管理后台，打开“插件配置”，进入准备使用的平台。先填写并保存平台账号密码；直连插件也可填写 Token 或 Cookie。商户号、门店号、终端号和码牌 ID 不知道时先留空。</li>
+<li>用准备接入的目标码牌或终端真实收一笔容易辨认的小额款，等第三方平台显示交易成功。同一时间尽量只测试一台终端。</li>
+<li>在 5 分钟内回到插件编辑区，点击“查询最近流水”。纯 Docker 插件会把任务交给在线 Watcher，其它插件由 Worker 直接查询。</li>
+<li>按支付时间、金额、支付方式和商户名称找到目标流水，点击“填入编号”。系统只填平台实际返回、且当前插件需要的商户/门店/终端/码牌字段。</li>
+<li>核对编号，上传目标码牌的真实二维码，补齐图鉴或其它专用字段，保存后启用插件。</li>
+<li>进入“通道管理”新增通道。一个通道只选一种支付方式；同一插件同时收微信和支付宝时分别建两条通道。</li>
+<li>点击通道右侧“测试”，按收银台显示金额真实付款，确认订单已支付并完成回调。</li>
+</ol><div class="notice">最近流水只读取近 5 分钟成功交易，最多显示 20 条；不会创建或确认订单，也不展示付款人、备注、Cookie 或 Token。平台没有返回的编号保持空白，不要用订单流水号代替终端号。</div></div></section>
+
+<section><div class="number">05</div><div><h2>无损升级</h2><ol>
+<li>管理后台发现新版本时，点击“前往升级”；也可以直接打开 <a href="https://deploy.imsuk.cn">deploy.imsuk.cn</a>。</li>
+<li>填写原 Cloudflare 账号、原 Worker 项目名、公开访问地址和 License。</li>
+<li>向导发现同名 EdgePay 后会弹窗询问。确认升级后只替换程序文件。</li>
+<li>原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由都会保留，不需要重新填写后台配置。</li>
+</ol><div class="notice">如果同名 Worker 不是原 EdgePay，选择返回并重新填写项目名，向导不会覆盖它。</div></div></section>
+
+<section><div class="number">06</div><div><h2>更新与排错</h2><pre><button data-copy>复制</button><code># 更新镜像
 docker compose pull &amp;&amp; docker compose up -d
 
 # 查看状态和最近日志

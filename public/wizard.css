@@ -157,6 +157,8 @@ h1 { font-size: 20px; margin: 0 0 8px; }
 .field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .field small { color: var(--muted); font-size: 12px; }
+.field .check-inline { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); cursor: pointer; }
+.field .check-inline input[type="checkbox"] { width: 16px; height: 16px; flex: none; margin: 0; padding: 0; accent-color: var(--accent); cursor: pointer; }
 .field-link { float: right; color: var(--accent-hover); font-size: 12px; text-decoration: none; }
 .license-field { padding: 14px; border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .license-status { display: block; min-height: 18px; margin-top: 8px; font-size: 12px; }

@@ -89,6 +89,12 @@
       </label>
 
       <label class="field">
+        <span>后台定时轮询</span>
+        <span class="check-inline"><input type="checkbox" id="enableCron" checked /> 启用每分钟 Cron 自动轮询收款</span>
+        <small>勾选后，向导会在你的 Cloudflare 账号注册每分钟触发的定时任务，Worker 自动轮询收款到账。不勾选则不设定时任务，靠收银台打开时触发、或你自己按间隔访问轮询地址；纯监听类插件建议至少启用其一。无损升级不改动原有定时任务。</small>
+      </label>
+
+      <label class="field">
         <span>公开访问地址</span>
         <input type="text" id="publicBaseUrl" placeholder="可留空，验证 License 后自动填写绑定域名" />
         <small>必须与 License 绑定域名一致；该域名需位于当前 Cloudflare 账号，部署时会直接绑定到 Worker。</small>
@@ -120,6 +126,7 @@
           <tr><th>管理员用户名</th><td id="summary-admin"></td></tr>
           <tr><th>管理员密码</th><td id="summary-admin-password"></td></tr>
           <tr><th>Watcher 通信密钥</th><td id="summary-watcher-secret"></td></tr>
+          <tr><th>后台轮询</th><td id="summary-cron"></td></tr>
           <tr><th>Account ID</th><td id="summary-account"></td></tr>
           <tr><th>API Token</th><td id="summary-token"></td></tr>
           <tr><th>License</th><td id="summary-license"></td></tr>

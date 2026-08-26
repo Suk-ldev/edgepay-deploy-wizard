@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildScriptMetadata, uploadWorkerContent } from '../src/lib/cf-worker-script.js';
+import { buildScriptMetadata, setWorkerCronSchedules, uploadWorkerContent } from '../src/lib/cf-worker-script.js';
 
 test('metadata 只包含 D1、明文变量和密钥，不创建 KV/Assets 绑定', () => {
   const metadata = buildScriptMetadata({
@@ -10,7 +10,8 @@ test('metadata 只包含 D1、明文变量和密钥，不创建 KV/Assets 绑定
   });
 
   assert.equal(metadata.main_module, 'index.js');
-  assert.deepEqual(metadata.triggers, { crons: ['* * * * *'] });
+  // Cron 不能通过脚本上传 metadata 注册（会被 Cloudflare 忽略），改由 schedules 接口按需设置。
+  assert.equal('triggers' in metadata, false);
 
   const byName = Object.fromEntries(metadata.bindings.map((b) => [b.name, b]));
 
@@ -42,6 +43,28 @@ test('secret 和 plain_text 不会互相混淆成同一种类型', () => {
   });
   const typesForA = metadata.bindings.filter((b) => b.name === 'A').map((b) => b.type);
   assert.deepEqual(typesForA.sort(), ['plain_text', 'secret_text']);
+});
+
+test('setWorkerCronSchedules 调用独立的 schedules 接口并按 [{cron}] 提交', async () => {
+  let captured;
+  const client = {
+    async putJSON(path, body, opts) {
+      captured = { path, body, opts };
+      return { result: body };
+    },
+  };
+  const result = await setWorkerCronSchedules(client, 'acct', 'edgepay', ['* * * * *']);
+  assert.equal(captured.path, '/accounts/acct/workers/scripts/edgepay/schedules');
+  assert.deepEqual(captured.body, [{ cron: '* * * * *' }]);
+  assert.equal(captured.opts.stage, 'schedule_cron');
+  assert.deepEqual(result, [{ cron: '* * * * *' }]);
+});
+
+test('setWorkerCronSchedules 空数组清除全部定时任务', async () => {
+  let capturedBody;
+  const client = { async putJSON(_path, body) { capturedBody = body; return { result: body }; } };
+  await setWorkerCronSchedules(client, 'acct', 'edgepay', []);
+  assert.deepEqual(capturedBody, []);
 });
 
 test('无损升级使用 content 接口，只上传程序文件而不提交 bindings', async () => {

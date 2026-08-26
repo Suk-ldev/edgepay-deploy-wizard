@@ -21,13 +21,15 @@ service = "edgepay-license-worker"
 
 [vars]
 TEMPLATE_OWNER = "Suk-ldev"
-TEMPLATE_REPO = "edgepay-serverless-payment"
-# 公开商业加密发行仓库根目录就是支付 Worker，因此不设置子目录。
-# 锁定的模板 commit，不跟 main 分支自动漂移；升级模板版本时手动改这里。
-TEMPLATE_COMMIT_SHA = "e77de435b6e6e9396b6962afc073386fa4bf8f1a"
-TEMPLATE_VERSION = "1.2.1"
-TEMPLATE_ENTRY_SHA256 = "9c1e54828c9c86d340ec0b2357b8842324fa1845531218625a8239df9d9a8203"
-TEMPLATE_SCHEMA_SHA256 = "6da91cb521300e9ec3e119c91bebbd4ff8f957456d844a6c1177573b3756835d"
+# 私有发行仓库：只放混淆后的构建产物（core/index.js、plugins/<code>.js、schema.sql、
+# COMMERCIAL_BUILD.json）。公开源码仓库不含付费插件，也构建不出可部署的 Worker。
+TEMPLATE_REPO = "edgepay-payment-dist"
+# 锁定的发行 commit，不跟分支自动漂移；升级发行版本时手动改这三个值。
+TEMPLATE_COMMIT_SHA = "1bf27db643cb71acb8919cd3a8977685c69d4275"
+TEMPLATE_VERSION = "2.0.2"
+# 构建清单的 SHA-256。清单内再记录每个产物文件的哈希，钉住它即锁住整次发行。
+TEMPLATE_MANIFEST_SHA256 = "78db6e413863c446c10ea280177a402289fc1f4ceeee5dbaff5ba3ed5770e24c"
 
-# 支付模板仓库是公开商业加密发行仓库，默认匿名读取固定 commit。
-# GITHUB_TOKEN 仅作为可选的 GitHub API 限额扩容项，不是部署前置条件。
+# 发行仓库是私有的，GITHUB_TOKEN 是部署前置条件（不是限额扩容项）：
+#   npx wrangler secret put GITHUB_TOKEN
+# 权限要求：只读、仅限该 dist 仓库；不要给源码仓库权限，也不要给写权限。

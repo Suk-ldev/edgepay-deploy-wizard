@@ -9,6 +9,7 @@ const state = {
   edgepayLicense: '',
   licenseInfo: null,
   mode: 'install',
+  enableCron: true,
 };
 
 const STEP_LABELS = {
@@ -21,6 +22,7 @@ const STEP_LABELS = {
   d1_schema: '建表',
   generate_secrets: '准备密钥与配置',
   script_upload: '上传 Worker 脚本',
+  schedule_cron: '注册定时轮询',
   bind_domain: '绑定自定义域名',
 };
 const STEP_ORDER = Object.keys(STEP_LABELS);
@@ -121,6 +123,7 @@ $('step2-next').addEventListener('click', async () => {
   const adminPassword = $('adminPassword').value;
   const adminPasswordConfirm = $('adminPasswordConfirm').value;
   const watcherTransportSecret = $('watcherTransportSecret').value.trim();
+  const enableCron = $('enableCron').checked;
   const publicBaseUrl = $('publicBaseUrl').value.trim();
   const edgepayLicense = $('edgepayLicense').value.trim();
   const errorEl = $('step2-error');
@@ -218,6 +221,7 @@ $('step2-next').addEventListener('click', async () => {
   state.publicBaseUrl = normalizedPublicBaseUrl;
   state.edgepayLicense = edgepayLicense;
   state.licenseInfo = licenseInfo;
+  state.enableCron = enableCron;
 
   $('summary-project').textContent = projectName;
   $('summary-mode').textContent = state.mode === 'upgrade' ? '无损升级（保留原配置）' : '新建部署';
@@ -226,6 +230,9 @@ $('step2-next').addEventListener('click', async () => {
   $('summary-watcher-secret').textContent = state.mode === 'upgrade'
     ? '保留原通信密钥'
     : watcherTransportSecret ? '使用自定义密钥' : '自动生成';
+  $('summary-cron').textContent = state.mode === 'upgrade'
+    ? '保留原定时任务'
+    : enableCron ? '每分钟自动轮询' : '不设（收银台触发 / 主动查询）';
   $('summary-account').textContent = state.cfAccountId;
   $('summary-token').textContent = maskToken(state.cfApiToken);
   $('summary-license').textContent = `${licenseInfo.domain} · ${licenseInfo.entitlements.length} 个插件 · ${maskToken(edgepayLicense)}`;
@@ -259,7 +266,11 @@ function updateProgress(event) {
     li.querySelector('span:last-child').textContent = `${STEP_LABELS[event.stage]} — ${event.message}`;
   }
   if (event.status === 'warning') {
-    li.querySelector('span:last-child').textContent = `${STEP_LABELS[event.stage]} — ${event.message}`;
+    // 警告可能带 message（异常路径）也可能带 detail（正常但需要提醒），两者都认。
+    const text = event.message ?? event.detail ?? '';
+    li.querySelector('span:last-child').textContent = text
+      ? `${STEP_LABELS[event.stage]} — ${text}`
+      : STEP_LABELS[event.stage];
   }
 }
 
@@ -320,6 +331,7 @@ $('deploy-btn').addEventListener('click', async () => {
         publicBaseUrl: state.publicBaseUrl || undefined,
         edgepayLicense: state.edgepayLicense || undefined,
         mode: state.mode,
+        enableCron: state.enableCron,
       }),
     });
 

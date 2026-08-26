@@ -2,10 +2,10 @@ import { readConfig } from './config.js';
 import { CloudflareClient } from './lib/cf-client.js';
 import { verifyToken } from './lib/cf-token.js';
 import { createDatabase, applySchema } from './lib/cf-d1.js';
-import { uploadWorkerContent, uploadWorkerScript } from './lib/cf-worker-script.js';
+import { setWorkerCronSchedules, uploadWorkerContent, uploadWorkerScript } from './lib/cf-worker-script.js';
 import { ensureWorkerCustomDomain } from './lib/cf-domain.js';
 import { generateDeploySecrets } from './lib/secret-generator.js';
-import { fetchTemplateFiles } from './lib/template-fetcher.js';
+import { fetchCommercialRelease } from './lib/template-fetcher.js';
 import { createProgressStream, STEP_LABELS } from './lib/progress-stream.js';
 import { DeployError, redact } from './lib/errors.js';
 import { licenseFetcher, normalizePublicBaseUrl, verifyLicense } from './lib/license-verifier.js';
@@ -24,6 +24,9 @@ export function validateInput(body) {
   }
   if (body?.mode !== undefined && !['install', 'upgrade'].includes(body.mode)) {
     errors.mode = '部署方式只能是 install 或 upgrade';
+  }
+  if (body?.enableCron !== undefined && typeof body.enableCron !== 'boolean') {
+    errors.enableCron = '后台定时轮询开关只能是布尔值';
   }
   if (body?.adminUsername !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(body.adminUsername)) {
     errors.adminUsername = '管理员用户名格式不对';
@@ -60,6 +63,7 @@ export async function handleDeploy(request, env) {
 
   const { cfApiToken, cfAccountId, projectName } = body;
   const mode = body.mode === 'upgrade' ? 'upgrade' : 'install';
+  const enableCron = body.enableCron === true;
   const adminUsername = body.adminUsername || 'admin';
   let publicBaseUrl = normalizePublicBaseUrl(body.publicBaseUrl);
   const config = readConfig(env);
@@ -112,24 +116,35 @@ export async function handleDeploy(request, env) {
       }
 
       await emit({ ...step('template_fetch'), status: 'started' });
-      const files = await fetchTemplateFiles({
+      // 付费插件按权益出货：只下载并上传这个 License 买过的模块。
+      // entitlements 来自上一步 License Worker 的校验结果，不接受客户端传入。
+      const release = await fetchCommercialRelease({
         owner: config.templateOwner,
         repo: config.templateRepo,
         sha: config.templateSha,
         subdir: config.templateSubdir,
         githubToken: config.githubToken,
-        expectedHashes: {
-          'src/index.js': config.templateEntrySha256,
-          'schema.sql': config.templateSchemaSha256,
-        },
+        manifestSha256: config.templateManifestSha256,
+        entitlements: licenseInfo.entitlements,
       });
-      const srcFiles = files
-        .filter((f) => f.path.startsWith('src/'))
-        .map((f) => ({ path: f.path.slice('src/'.length), content: new TextDecoder().decode(f.bytes) }));
-      const schemaFile = files.find((f) => f.path === 'schema.sql');
-      if (!schemaFile) throw new DeployError('template_fetch', '模板里没有找到 schema.sql', { retryable: false });
-      const schemaText = new TextDecoder().decode(schemaFile.bytes);
-      await emit({ ...step('template_fetch'), status: 'done', detail: `${files.length} 个文件` });
+      const srcFiles = release.sourceFiles;
+      const schemaText = release.schemaText;
+      const installedNames = release.installed.map((plugin) => plugin.name || plugin.code);
+      await emit({
+        ...step('template_fetch'),
+        status: 'done',
+        detail: release.installed.length
+          ? `${srcFiles.length} 个模块 · 已装载付费插件：${installedNames.join('、')}`
+          : `${srcFiles.length} 个模块 · 未装载付费插件`,
+      });
+      if (release.unavailable.length) {
+        // 买了但这次发行还没打包的插件：如实说明，不要让客户以为装上了。
+        await emit({
+          ...step('template_fetch'),
+          status: 'warning',
+          detail: `以下已购插件在当前发行版本中尚未提供，本次未安装：${release.unavailable.join('、')}`,
+        });
+      }
 
       await emit({ ...step('d1_create'), status: 'started' });
       let databaseId;
@@ -176,6 +191,26 @@ export async function handleDeploy(request, env) {
           },
         });
         await emit({ ...step('script_upload'), status: 'done' });
+      }
+
+      // 定时轮询：Cron 必须走独立的 schedules 接口，脚本上传 metadata 里带 triggers 无效。
+      if (mode === 'upgrade') {
+        await emit({ ...step('schedule_cron'), status: 'done', detail: '保留原有定时任务，未改动' });
+      } else if (enableCron) {
+        await emit({ ...step('schedule_cron'), status: 'started' });
+        try {
+          await setWorkerCronSchedules(client, cfAccountId, projectName, ['* * * * *']);
+          await emit({ ...step('schedule_cron'), status: 'done', detail: '每分钟自动轮询收款' });
+        } catch (error) {
+          await emit({
+            ...step('schedule_cron'),
+            status: 'warning',
+            message: error instanceof DeployError ? error.message : '定时轮询注册失败',
+            detail: error instanceof DeployError ? error.detail : String(error),
+          });
+        }
+      } else {
+        await emit({ ...step('schedule_cron'), status: 'done', detail: '未启用（靠收银台触发或主动查询地址）' });
       }
 
       await emit({ ...step('bind_domain'), status: 'started' });

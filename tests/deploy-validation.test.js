@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateInput } from '../src/deploy-handler.js';
+import { handleDeploy, validateInput } from '../src/deploy-handler.js';
 
 const valid = {
   cfApiToken: 'TOKEN',
@@ -40,4 +40,13 @@ test('无损升级保留原密码与通信密钥，不要求重新填写', () =>
   const errors = validateInput({ ...valid, mode: 'upgrade', adminPassword: '', watcherTransportSecret: '' });
   assert.equal(errors.adminPassword, undefined);
   assert.equal(errors.watcherTransportSecret, undefined);
+});
+
+test('部署入口拒绝超限 JSON 请求体', async () => {
+  const response = await handleDeploy(new Request('https://deploy.example/api/deploy', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'content-length': String(129 * 1024) },
+    body: '{}',
+  }), {});
+  assert.equal(response.status, 413);
 });

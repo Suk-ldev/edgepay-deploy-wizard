@@ -3,54 +3,62 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>一键部署 EdgePay</title>
+<title>EdgePay · 部署工作台</title>
+<meta name="description" content="在自己的 Cloudflare 账户部署或升级 EdgePay。按步骤校验凭据、绑定授权域名并完成发布。" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-<link rel="stylesheet" href="/wizard.css?v=20260824-1" />
+<link rel="stylesheet" href="/wizard.css?v=20260905-1" />
 </head>
 <body>
+<a class="skip-link" href="#workspace">跳转到部署表单</a>
+<header class="site-header">
+  <a class="site-brand" href="/"><img src="/favicon.svg" alt="" />EdgePay <span>部署工作台</span></a>
+  <nav aria-label="站点导航"><a href="/guide.html">部署教程</a><a href="https://license.imsuk.cn" target="_blank" rel="noopener">获取 License <span aria-hidden="true">↗</span></a></nav>
+</header>
 <div class="page">
+  <aside class="sidebar" aria-label="部署流程">
   <header class="brand">
-    <span class="brand-mark"><img src="/favicon.svg" alt="" /></span>
-    <h1 class="brand-title">一键部署 · EdgePay</h1>
-    <p class="brand-sub">部署到你自己的 Cloudflare 账号</p>
+    <p class="eyebrow">CLOUDFLARE WORKERS</p>
+    <h1 class="brand-title">部署你的 EdgePay</h1>
+    <p class="brand-sub">新建部署或更新现有项目，<br />所有资源都在你自己的账户中。</p>
   </header>
 
   <ol class="steps" id="steps">
-    <li data-step="1" class="active"><span class="step-dot">1</span><span class="step-text">Cloudflare 凭据</span></li>
-    <li data-step="2"><span class="step-dot">2</span><span class="step-text">部署信息</span></li>
-    <li data-step="3"><span class="step-dot">3</span><span class="step-text">确认并部署</span></li>
-    <li data-step="4"><span class="step-dot">4</span><span class="step-text">完成</span></li>
+    <li data-step="1" class="active" aria-current="step"><span class="step-dot">1</span><span class="step-text">连接 Cloudflare<small>验证 Token 与账户</small></span></li>
+    <li data-step="2"><span class="step-dot">2</span><span class="step-text">填写部署信息<small>设置项目与 License</small></span></li>
+    <li data-step="3"><span class="step-dot">3</span><span class="step-text">确认并部署<small>核对配置，查看发布进度</small></span></li>
+    <li data-step="4"><span class="step-dot">4</span><span class="step-text">保存部署结果<small>进入后台配置收款通道</small></span></li>
   </ol>
+  <div class="sidebar-help"><span class="help-title">第一次部署？</span><p>先准备正式域名和永久 License。免费插件也需要生成授权。</p><a href="/guide.html#prepare">查看准备清单 <span aria-hidden="true">↗</span></a></div>
+  </aside>
 
-  <main class="card">
+  <main class="card" id="workspace" tabindex="-1">
 
     <section class="screen active" id="screen-1">
-      <h2>填写 Cloudflare 凭据</h2>
-      <p class="hint">
-        向导只在这次部署请求里临时使用你的 Token 调用 Cloudflare API，不会保存、不会记日志。
-        建议新建一个只带 <code>Account.D1:Edit</code> 和 <code>Account.Workers Scripts:Edit</code>
-        权限的专用 Token，而不是用 Global API Key。
-        客户项目只使用一个 D1，前端资源随 Worker 模块发布，不创建 KV 或 Static Assets。
-        <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">去 Cloudflare 建一个 →</a>
-      </p>
+      <p class="eyebrow">STEP 01 / 04</p>
+      <h2 tabindex="-1">连接 Cloudflare</h2>
+      <p class="hint">使用专用 API Token，验证后再填写项目配置。此步骤不会创建或修改资源。</p>
+      <div class="credential-note"><span aria-hidden="true">↳</span><p>凭据仅用于本次请求，不保存、不写入日志。<br />请使用 API Token，而不是 Global API Key。</p></div>
 
       <details class="token-help">
-        <summary>查看 API Token 权限配置示例</summary>
-        <p>创建自定义令牌，添加“账户 · D1 · 编辑”和“账户 · Workers 脚本 · 编辑”，账户资源选择需要部署 EdgePay 的账号。不要设置客户端 IP 限制；TTL 可以按自己的运维要求填写。</p>
+        <summary>还没有 Token？查看权限配置示例</summary>
+        <p><a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">打开 Cloudflare API Token 页面 ↗</a>，创建自定义令牌：</p>
+        <ul><li>账户 · <code>D1</code> · 编辑</li><li>账户 · <code>Workers 脚本</code> · 编辑</li><li>仅上传或更换微信退款证书时：账户 · <code>SSL 和证书</code> · 编辑</li></ul>
+        <p>账户资源选择实际部署账号。向导从 Cloudflare 边缘请求 API，不要将客户端 IP 限定为本机 IP；有效期按需设置。证书权限探测异常时，可核对权限后继续，最终以证书上传结果为准。</p>
         <img src="/cloudflare-token-example.png" alt="Cloudflare 自定义 API Token 权限配置示例：D1 编辑、Workers 脚本编辑、账户资源范围" loading="lazy" />
       </details>
 
       <label class="field">
         <span>Cloudflare API Token</span>
-        <input type="password" id="cfApiToken" autocomplete="off" placeholder="粘贴你的 API Token" />
+        <input type="password" id="cfApiToken" autocomplete="off" spellcheck="false" placeholder="粘贴专用于本次部署的 API Token" aria-describedby="step1-error" />
       </label>
 
       <label class="field">
         <span>Account ID</span>
-        <input type="text" id="cfAccountId" autocomplete="off" placeholder="Cloudflare 控制台右下角能找到" />
+        <input type="text" id="cfAccountId" autocomplete="off" spellcheck="false" placeholder="32 位 Cloudflare 账户 ID" aria-describedby="account-help step1-error" />
+        <small id="account-help">复制目标账户的 Account ID，不是域名的 Zone ID。<a href="/guide.html#credentials">查看查找方法</a></small>
       </label>
 
-      <p class="error" id="step1-error"></p>
+      <p class="error" id="step1-error" role="alert"></p>
 
       <div class="actions">
         <button class="btn btn-primary" id="step1-next">验证并下一步</button>
@@ -58,7 +66,10 @@
     </section>
 
     <section class="screen" id="screen-2">
-      <h2>部署信息</h2>
+      <p class="eyebrow">STEP 02 / 04</p>
+      <h2 tabindex="-1">填写部署信息</h2>
+      <p class="hint">新建项目请设置管理员密码；升级请填写原项目名，原有配置将保留。</p>
+      <h3 class="form-section">项目与管理员</h3>
 
       <label class="field">
         <span>项目名</span>
@@ -82,6 +93,7 @@
         <input type="password" id="adminPasswordConfirm" autocomplete="new-password" placeholder="再次输入管理员密码" />
       </label>
 
+      <h3 class="form-section">监听与访问</h3>
       <label class="field">
         <span>Watcher 通信密钥（可选）</span>
         <input type="password" id="watcherTransportSecret" autocomplete="off" placeholder="留空自动生成；自定义时至少 24 个字符" />
@@ -91,7 +103,7 @@
       <label class="field">
         <span>后台定时轮询</span>
         <span class="check-inline"><input type="checkbox" id="enableCron" checked /> 启用每分钟 Cron 自动轮询收款</span>
-        <small>勾选后，向导会在你的 Cloudflare 账号注册每分钟触发的定时任务，Worker 自动轮询收款到账。不勾选则不设定时任务，靠收银台打开时触发、或你自己按间隔访问轮询地址；纯监听类插件建议至少启用其一。无损升级不改动原有定时任务。</small>
+        <small>每分钟自动查询收款。关闭后需由收银台或自行定时请求触发轮询；监听类插件请至少保留一种触发方式。无损升级保留原定时任务。</small>
       </label>
 
       <label class="field">
@@ -104,10 +116,26 @@
         <span>EdgePay 永久 License <a class="field-link" href="https://license.imsuk.cn" target="_blank" rel="noopener">获取 License →</a></span>
         <input type="password" id="edgepayLicense" autocomplete="off" required placeholder="EPL1...；免费插件也需要先生成 License" />
         <small>向导会先在线验签并核对绑定域名，再作为加密 Worker Secret 上传。</small>
-        <strong class="license-status" id="license-status"></strong>
+        <strong class="license-status" id="license-status" role="status"></strong>
       </label>
 
-      <p class="error" id="step2-error"></p>
+      <details class="token-help mtls-help" id="wechat-mtls-setup">
+        <summary>微信支付 V2 API 退款证书（可选）</summary>
+        <p>仅使用微信支付官方 API 且需要原路退款时配置。从微信支付商户平台下载商户 API 证书，两个文件必须一起选择。文件只在当前页面内存和本次部署请求中使用，不写入 EdgePay D1、Worker Secret 或部署日志。</p>
+        <label class="field">
+          <span>商户 API 证书（apiclient_cert.pem）</span>
+          <input type="file" id="wechatMtlsCertificate" accept=".pem,application/x-pem-file" />
+        </label>
+        <label class="field">
+          <span>商户 API 私钥（apiclient_key.pem）</span>
+          <input type="file" id="wechatMtlsPrivateKey" accept=".pem,application/x-pem-file" />
+        </label>
+        <small>无损升级不选文件会保留现有 <code>WECHAT_MTLS</code>；重新选择两个文件可换证。向导不会自动删除旧证书。</small>
+      </details>
+
+      <p class="hint mtls-locked" id="wechat-mtls-locked" hidden></p>
+
+      <p class="error" id="step2-error" role="alert"></p>
 
       <div class="actions">
         <button class="btn btn-ghost" data-back>上一步</button>
@@ -116,7 +144,9 @@
     </section>
 
     <section class="screen" id="screen-3">
-      <h2>确认并部署</h2>
+      <p class="eyebrow">STEP 03 / 04</p>
+      <h2 tabindex="-1">确认并部署</h2>
+      <p class="hint">核对项目、操作方式和授权。点击开始后，请保持页面打开直至发布完成。</p>
 
       <table class="summary">
         <tbody>
@@ -130,12 +160,13 @@
           <tr><th>Account ID</th><td id="summary-account"></td></tr>
           <tr><th>API Token</th><td id="summary-token"></td></tr>
           <tr><th>License</th><td id="summary-license"></td></tr>
+          <tr><th>微信退款 mTLS</th><td id="summary-wechat-mtls"></td></tr>
         </tbody>
       </table>
 
-      <ol class="progress" id="progress-list"></ol>
+      <ol class="progress" id="progress-list" aria-live="polite" aria-label="部署进度"></ol>
 
-      <p class="error" id="step3-error"></p>
+      <p class="error" id="step3-error" role="alert"></p>
 
       <div class="actions">
         <button class="btn btn-ghost" data-back id="step3-back">上一步</button>
@@ -144,9 +175,10 @@
     </section>
 
     <section class="screen" id="screen-4">
-      <h2 id="complete-title">部署完成</h2>
+      <p class="eyebrow">STEP 04 / 04</p>
+      <h2 id="complete-title" tabindex="-1">部署完成</h2>
       <p class="hint warn" id="result-hint">
-        下面这些信息只会显示这一次，现在就复制保存。插件/支付通道配置需要你登录后台手动完成。
+        请先复制保存以下凭据，关闭页面后不再展示。接下来进入管理后台，配置插件并创建收款通道。
       </p>
 
       <div class="result-list" id="result-list"></div>
@@ -169,9 +201,9 @@
     </div>
   </dialog>
 
-  <footer class="foot">插件/通道配置需要在部署完成后登录后台设置 · <a href="/guide.html">安装与 Docker 教程</a></footer>
+  <footer class="foot"><span>EdgePay · 自有账户部署</span><a href="/guide.html#channels">部署后，如何完成第一笔收款？ ↗</a></footer>
 </div>
 
-<script src="/wizard.js?v=20260824-1"></script>
+<script src="/wizard.js?v=20260905-1"></script>
 </body>
 </html>

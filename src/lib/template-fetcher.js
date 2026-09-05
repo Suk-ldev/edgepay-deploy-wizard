@@ -186,7 +186,17 @@ export async function fetchCommercialRelease({
     sourceFiles.push({ path: `plugins/${plugin.code}.js`, content: decoder.decode(bytes) });
   }
 
-  // 5) 胶水模块在本地生成，不需要也不应该从远端取
+  // 5) 静态资源模块：core 以 `import { fetchBundledAsset } from './bundled-assets.js'`
+  //    引用它，是核心之外唯一必须一起上传的兄弟模块。它没混淆（本就是公开前端代码），
+  //    但仍按清单 sha 校验，防止分发环节被替换。旧版发行没有这个字段——那时资源还
+  //    内联在核心里，跳过即可，保持对旧 dist 的兼容。
+  if (manifest.assets_module) {
+    const assetsBytes = await get(manifest.assets_source ?? manifest.assets_module);
+    await assertHash(manifest.assets_module, assetsBytes, manifest.assets_sha256);
+    sourceFiles.push({ path: manifest.assets_module, content: decoder.decode(assetsBytes) });
+  }
+
+  // 6) 胶水模块在本地生成，不需要也不应该从远端取
   sourceFiles.push({
     path: manifest.paid_plugins_module ?? 'paid-plugins.js',
     content: buildPaidPluginsModule(selected),

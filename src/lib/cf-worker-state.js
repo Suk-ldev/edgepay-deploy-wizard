@@ -34,6 +34,7 @@ export async function inspectWorker(client, accountId, scriptName) {
     exists: true,
     compatible,
     databaseId,
+    wechatMtlsConfigured: names.has('WECHAT_MTLS'),
     bindingNames: [...names].filter(Boolean).sort(),
   };
 }

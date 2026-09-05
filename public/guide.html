@@ -1,36 +1,72 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EdgePay 安装与 Docker 教程</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/guide.css"></head>
-<body><header><a class="brand" href="/"><img src="/favicon.svg" alt="">EdgePay</a><a href="/">返回部署向导</a></header>
-<main><section class="intro"><p class="eyebrow">INSTALLATION GUIDE</p><h1>从 License 到首个收款通道</h1><p>按顺序完成授权、Worker 部署、收款平台配置、编号识别和 Docker Watcher。</p></section>
+<title>EdgePay · 部署与使用教程</title><meta name="description" content="从准备 License 和 Cloudflare 凭据，到部署支付站、配置通道、启动监听器与排查问题的完整操作教程。"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/guide.css?v=20260905-1"></head>
+<body><a class="skip-link" href="#guide-content">跳转到教程正文</a><header><a class="brand" href="/"><img src="/favicon.svg" alt="">EdgePay</a><nav aria-label="站点导航"><a href="https://license.imsuk.cn">获取 License ↗</a><a class="header-cta" href="/">打开部署向导 ↗</a></nav></header>
+<div class="docs-layout"><aside class="docs-sidebar"><p class="eyebrow">EDGEPAY DOCS</p><nav aria-label="教程目录" id="guide-nav"><a href="#prepare">开始之前</a><a href="#license">01 · 获取 License</a><a href="#deploy">02 · 部署支付站</a><a href="#channels">03 · 配置收款通道</a><a href="#watcher">04 · Docker 监听器</a><a href="#wechat">05 · 微信个人收款</a><a href="#upgrade">06 · 无损升级</a><a href="#troubleshooting">07 · 更新与排错</a></nav><div class="docs-help">已有支付站？<br><a href="#upgrade">直接查看升级步骤 →</a></div></aside><main id="guide-content"><section class="intro" id="prepare"><p class="eyebrow">部署与使用教程</p><h1>从准备授权，<br>到完成第一笔收款。</h1><p>先部署支付站，再配置通道。Docker 和微信监听按所选插件需要设置，不必逐项安装。</p><div class="prerequisites"><h2>开始前，准备这四项</h2><ul><li><strong>正式支付域名</strong><span>已接入你的 Cloudflare 账户</span></li><li><strong>永久 License</strong><span>与支付域名一致，免费插件也需要</span></li><li><strong>API Token + Account ID</strong><span>用于向导校验与发布</span></li><li><strong>收款平台资料</strong><span>账号、密钥或真实收款二维码</span></li></ul></div><p class="reading-note">第一次使用：按 01 → 02 → 03 完成主流程。需要容器监听时，再阅读 04 或 05。</p></section>
 
-<section><div class="number">01</div><div><h2>获取永久 License</h2><ol>
+<section class="guide-section" id="license"><div class="number">01</div><div><h2>获取永久 License</h2><ol>
 <li>打开 <a href="https://license.imsuk.cn" target="_blank" rel="noopener">license.imsuk.cn</a>。</li>
 <li>填写准备绑定给支付 Worker 的正式域名，例如 <code>pay.example.com</code>。这里不要填写 <code>license.imsuk.cn</code>。</li>
-<li>免费插件已经锁定为默认包含；按需选择付费插件，也可以全部不选。</li>
-<li>生成后立即复制并妥善保存以 <code>EPL1.</code> 开头的 License。后续增购继续使用同一串 License。</li>
+<li>免费插件默认包含，无需付款。按需选择付费插件；未选付费插件时可直接生成免费授权。</li>
+<li>生成后立即复制并妥善保存以 <code>EPL1.</code> 开头的 License。同域名增购继续使用同一串 License；换绑域名会生成新 License，原授权随即失效。</li>
 </ol><div class="notice">License 与域名严格绑定。部署向导中的“公开访问地址”必须使用同一域名。</div></div></section>
 
-<section><div class="number">02</div><div><h2>部署支付 Worker</h2><ol>
+<section class="guide-section" id="deploy"><div class="number">02</div><div><h2>部署支付站</h2><p>先完成凭据校验，再填写项目。新建会创建资源；升级会识别并保留原项目配置。</p><ol>
 <li>回到 <a href="https://deploy.imsuk.cn">deploy.imsuk.cn</a>，填写 Cloudflare API Token 和 Account ID。</li>
 <li>填写项目名、管理员用户名、管理员密码和公开访问地址，例如 <code>https://pay.example.com</code>。管理员密码为新建部署必填项。</li>
 <li>Watcher 通信密钥可以自行填写；留空时向导会生成高强度随机值，完成后把它填入容器的 <code>TRANSPORT_KEY</code>。</li>
 <li>将刚才保存的 License 粘贴到“EdgePay 永久 License”。向导会在线验签并核对域名。</li>
-<li>客户项目只创建一个 D1；收银台和后台文件已内嵌到 Worker，不会上传 KV 或 Workers Static Assets，因此不会占用对应的存储/命名空间限额。</li>
+<li>客户项目只创建一个 D1，页面随 Worker 程序发布，不额外创建 KV 或静态资源命名空间。同名 D1 仅在没有订单、插件配置和运行配置时复用。</li>
 <li>确认后开始部署，保存完成页显示的所有密钥，尤其是 <code>ADMIN_TOKEN</code> 和 <code>WATCHER_TRANSPORT_SECRET</code>。</li>
 <li>向导会把 License 域名直接绑定到支付 Worker，不启用 <code>workers.dev</code>；该域名必须位于当前 Cloudflare 账号。</li>
-</ol><p>Token 权限按下图配置：账户级 <code>D1:Edit</code> 与 <code>Workers Scripts:Edit</code>，账户资源选择实际部署账号。</p><img class="guide-shot" src="/cloudflare-token-example.png" alt="Cloudflare API Token 权限配置示例" loading="lazy"></div></section>
+</ol><h3 id="credentials">API Token 与 Account ID 去哪里找？</h3><p>在 <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">Cloudflare API Token 页面</a>创建自定义令牌。在目标账户的概览或 Workers &amp; Pages 页面复制 <strong>Account ID</strong>，它是 32 位十六进制字符，不是域名的 Zone ID。Token 的账户资源范围必须包含这个账户。</p><p>权限示例见下图：账户级 <code>D1:Edit</code> 与 <code>Workers Scripts:Edit</code>，账户资源选择实际部署账号。需要上传微信退款 mTLS 证书时，再加账户级 <code>SSL and Certificates:Edit</code>；如果证书权限探测提示异常但你已确认权限齐全，可以继续部署，最终以 Cloudflare 上传步骤返回为准。</p><img class="guide-shot" src="/cloudflare-token-example.png" alt="Cloudflare API Token 权限配置示例" loading="lazy"></div></section>
 
-<section><div class="number">03</div><div><h2>按插件需要启动 Docker watcher</h2><p>付呗、收钱吧等能由 Worker 直接查询的平台可以先跳过本节。富友、拉卡拉普通版、星驿付普通版、天阙会生活、易宝老板管账、易生收款啦和盛付通必须保持 Docker 在线。公开镜像同时提供 AMD64 与 ARM64 版本：</p>
+<section class="guide-section" id="channels"><div class="number">03</div><div><h2>配置通道，验证第一笔收款</h2><p>打开支付站 <code>/admin</code>，使用部署时设置的管理员用户名和密码登录。先保存插件配置，再创建支付通道；需要 Docker 的插件请先完成下一节。</p><ol>
+<li>登录支付站的管理后台，打开“插件配置”，进入准备使用的平台。先填写并保存平台账号密码；直连插件也可填写 Token 或 Cookie。商户号、门店号、终端号和码牌 ID 不知道时先留空。</li>
+<li>用准备接入的目标码牌或终端真实收一笔容易辨认的小额款，等第三方平台显示交易成功。同一时间尽量只测试一台终端。</li>
+<li>在 5 分钟内回到插件编辑区，点击“查询最近流水”。纯 Docker 插件会把任务交给在线 Watcher，其它插件由 Worker 直接查询。</li>
+<li>按支付时间、金额、支付方式和商户名称找到目标流水，点击“填入编号”。系统只填平台实际返回、且当前插件需要的商户/门店/终端/码牌字段。</li>
+<li>核对编号，上传目标码牌的真实二维码，补齐图鉴等插件专用字段，保存后启用插件。</li>
+<li>进入“通道管理”新增通道。一个通道只选一种支付方式；同一插件同时收微信和支付宝时分别建两条通道。</li>
+<li>点击通道右侧“测试”，按收银台显示金额真实付款，确认订单状态变为“已支付”。若已接入业务系统，再核对回调是否成功、业务订单是否同步更新。</li>
+</ol><div class="notice">最近流水只读取近 5 分钟成功交易，最多显示 20 条；不会创建或确认订单，也不展示付款人、备注、Cookie 或 Token。平台没有返回的编号保持空白，不要用订单流水号代替终端号。</div></div></section>
+
+<section class="guide-section" id="watcher"><div class="number">04</div><div><h2>按需启动 Docker 监听器</h2><p>付呗、收钱吧等能由 Worker 直接查询的平台可以先跳过本节。富友、拉卡拉普通版、星驿付普通版、天阙会生活、易宝老板管账、易生收款啦和盛付通必须保持 Docker 在线。公开镜像同时提供 AMD64 与 ARM64 版本：</p>
 <pre><button data-copy>复制</button><code>docker pull ghcr.io/suk-ldev/edgepay-watcher:latest</code></pre>
-<p>新建目录并创建 <code>.env</code>：</p><pre><button data-copy>复制</button><code>mkdir -p edgepay-watcher/storage
+<h3>方式一：一条指令启动（已安装 Docker 的服务器 / NAS）</h3>
+<p>先准备一个用于持久化的宿主机目录，再将下方四处中文替换为真实值。本方式不需要 <code>.env</code> 或 Compose 文件。下面是<strong>直连版</strong>，只需执行与你所选版本对应的一条启动命令：</p>
+<pre><button data-copy>复制</button><code>docker run -d --name payment-watcher --restart unless-stopped -e TZ=Asia/Shanghai -e WORKER_URL="你的支付站地址" -e TRANSPORT_KEY="你的Watcher传输密钥" -e EDGEPAY_LICENSE="你的License" -e POLL_SECONDS=15 -e MAX_CONCURRENCY=2 -e WATCHER_STORAGE_DIR=/app/var/storage -v "你的存储目录":/app/var/storage --security-opt no-new-privileges:true ghcr.io/suk-ldev/edgepay-watcher:latest</code></pre>
+<p>示例统一使用官方镜像源 <code>ghcr.io</code>。如需镜像加速服务，请自行确认来源；启动、更新时使用同一镜像源和版本标签。</p>
+<h4>两个版本，按需要选一个</h4>
+<ul class="fill-list">
+<li><code>:latest</code> —— <strong>直连版</strong>，不含浏览器，适合接口直连插件。付呗、收钱吧、支付宝账单、USDT TRC20 等走接口直连的插件都在这个版本里。按实际插件的运行要求选择。</li>
+<li><code>:latest-browser</code> —— <strong>浏览器版</strong>，内置 Chromium headless shell。富友、拉卡拉普通版、星驿付普通版、天阙会生活、易宝老板管账、易生收款啦、盛付通这些必须走网页登录的平台需要它。<strong>浏览器版包含全部直连插件</strong>，既有直连又有浏览器平台时只需要这一个容器，不用开两个。</li>
+</ul>
+<p>选错也不会静默出问题：直连版启动时会把需要浏览器的插件筛掉，并在日志里写明缺哪些、该换哪个镜像。</p>
+<p>四处要改的地方：</p>
+<ul class="fill-list">
+<li><code>你的支付站地址</code> —— 支付 Worker 的 HTTPS 正式地址，例如 <code>https://pay.example.com</code>。必须和 Payment 的 <code>PUBLIC_BASE_URL</code>、License 绑定域名完全一致，结尾不要带斜杠。</li>
+<li><code>你的Watcher传输密钥</code> —— 部署完成页上的 <code>WATCHER_TRANSPORT_SECRET</code>，请完整复制，不要添加空格。遗失时可在支付后台“密钥管理”轮换，并同步更新所有监听容器。</li>
+<li><code>你的License</code> —— 从 license.imsuk.cn 生成的 <code>EPL1</code> 开头的 License，和支付 Worker 用的是同一个。只用免费插件时可以把这一整段 <code>-e EDGEPAY_LICENSE=...</code> 删掉。</li>
+<li><code>你的存储目录</code> —— 宿主机上放登录态和缓存的目录，例如 <code>/opt/edgepay-watcher/storage</code>，请先创建并确认容器具有读写权限。建议使用绝对路径；NAS 可在文件管理器中创建。容器内路径 <code>/app/var/storage</code> 保持不动。</li>
+</ul>
+<div class="notice">用<strong>浏览器版</strong>时，把镜像名换成 <code>…edgepay-watcher:latest-browser</code>，并在镜像名之前再加一段 <code>--shm-size 256m</code>：浏览器需要更多共享内存，默认配额可能导致进程异常退出。直连版不需要加。</div>
+<p>要用<strong>浏览器版</strong>的话，换成下面这条（只有镜像 tag 和多出来的 <code>--shm-size 256m</code> 不同，其余完全一样）：</p>
+<pre><button data-copy>复制</button><code>docker run -d --name payment-watcher --restart unless-stopped -e TZ=Asia/Shanghai -e WORKER_URL="你的支付站地址" -e TRANSPORT_KEY="你的Watcher传输密钥" -e EDGEPAY_LICENSE="你的License" -e POLL_SECONDS=15 -e MAX_CONCURRENCY=2 -e WATCHER_STORAGE_DIR=/app/var/storage -v "你的存储目录":/app/var/storage --shm-size 256m --security-opt no-new-privileges:true ghcr.io/suk-ldev/edgepay-watcher:latest-browser</code></pre>
+<p>跑起来之后看日志确认已连上支付站：</p>
+<pre><button data-copy>复制</button><code>docker logs -f --tail=100 payment-watcher</code></pre>
+<p>以后升级镜像（以下为 Linux / NAS 的 sh 或 bash 命令）：先拉取当前容器所用的同源、同标签镜像，成功后再停止并移除容器。</p>
+<pre><button data-copy>复制</button><code>docker pull "$(docker inspect payment-watcher --format '{{.Config.Image}}')" &amp;&amp; docker stop payment-watcher &amp;&amp; docker rm payment-watcher</code></pre>
+<p>随后使用原来的 <code>docker run</code> 命令重建。保持域名、密钥、License、镜像标签与宿主机目录不变；不要删除持久化目录。停机期间监听会短暂中断，请选择合适时段操作。</p>
+<h3>方式二：compose 文件（长期维护更顺手）</h3>
+<p>以下命令用于 Linux / NAS 的 sh 或 bash。新建目录并创建 <code>.env</code>，启动前将域名、密钥与 License 替换为真实值：</p><pre><button data-copy>复制</button><code>mkdir -p edgepay-watcher/storage
 cd edgepay-watcher
 cat &gt; .env &lt;&lt;'EOF'
 TZ=Asia/Shanghai
 WORKER_URL=https://pay.example.com
 TRANSPORT_KEY=部署完成页的-WATCHER_TRANSPORT_SECRET
 EDGEPAY_LICENSE=从-license.imsuk.cn-生成的-EPL1-License
-POLL_SECONDS=5
+POLL_SECONDS=15
 MAX_CONCURRENCY=2
 WATCHER_STORAGE_DIR=/app/var/storage
 EOF
@@ -43,34 +79,74 @@ chmod 600 .env</code></pre>
     env_file: .env
     volumes:
       - ./storage:/app/var/storage
-    shm_size: 256mb
-    mem_limit: 768m
     security_opt:
       - no-new-privileges:true</code></pre>
-<p>拉取并启动：</p><pre><button data-copy>复制</button><code>docker compose pull
+<p>上方为直连版配置。浏览器插件请将 <code>image</code> 标签改为 <code>latest-browser</code>，并在 <code>watcher</code> 下与 <code>image</code> 同级添加 <code>shm_size: 256mb</code>。按实际负载准备内存，不在通用示例中写死内存上限。</p><p>在 <code>compose.yaml</code> 所在目录拉取并启动：</p><pre><button data-copy>复制</button><code>docker compose pull
 docker compose up -d
 docker compose ps
 docker compose logs -f --tail=100</code></pre>
 <div class="notice">Worker Secret <code>WATCHER_TRANSPORT_SECRET</code> 与容器 <code>TRANSPORT_KEY</code> 必须完全一致；Worker 和容器也必须填写同一 License。</div></div></section>
 
-<section><div class="number">04</div><div><h2>配置收款插件并查出平台编号</h2><ol>
-<li>登录支付站的管理后台，打开“插件配置”，进入准备使用的平台。先填写并保存平台账号密码；直连插件也可填写 Token 或 Cookie。商户号、门店号、终端号和码牌 ID 不知道时先留空。</li>
-<li>用准备接入的目标码牌或终端真实收一笔容易辨认的小额款，等第三方平台显示交易成功。同一时间尽量只测试一台终端。</li>
-<li>在 5 分钟内回到插件编辑区，点击“查询最近流水”。纯 Docker 插件会把任务交给在线 Watcher，其它插件由 Worker 直接查询。</li>
-<li>按支付时间、金额、支付方式和商户名称找到目标流水，点击“填入编号”。系统只填平台实际返回、且当前插件需要的商户/门店/终端/码牌字段。</li>
-<li>核对编号，上传目标码牌的真实二维码，补齐图鉴或其它专用字段，保存后启用插件。</li>
-<li>进入“通道管理”新增通道。一个通道只选一种支付方式；同一插件同时收微信和支付宝时分别建两条通道。</li>
-<li>点击通道右侧“测试”，按收银台显示金额真实付款，确认订单已支付并完成回调。</li>
-</ol><div class="notice">最近流水只读取近 5 分钟成功交易，最多显示 20 条；不会创建或确认订单，也不展示付款人、备注、Cookie 或 Token。平台没有返回的编号保持空白，不要用订单流水号代替终端号。</div></div></section>
+<section class="guide-section" id="wechat"><div class="number">05</div><div><h2>微信个人收款：两种监听方式二选一</h2>
+<p>微信个人收款的到账信息有两条来源，<strong>同一个收款微信只能选一种</strong>——同时启用会重复投递同一笔到账，增加排错难度。</p>
+<div class="table-scroll"><table class="compare">
+<thead><tr><th></th><th>手机通知监听</th><th>应用宝协议监听</th></tr></thead>
+<tbody>
+<tr><td>需要什么</td><td>一部长期开机的安卓手机</td><td>一台能跑 Docker 的机器</td></tr>
+<tr><td>到账来源</td><td>微信收款到账通知</td><td>「收款小账本」小程序的收款流水</td></tr>
+<tr><td>收款码类型</td><td>个人码、经营码都行</td><td><strong>只支持个人收款码</strong></td></tr>
+<tr><td>手机要一直开着吗</td><td>要</td><td>不用</td></tr>
+</tbody></table></div>
+<div class="notice">经营收款码的流水不进「收款小账本」，应用宝这条链路查不到。用经营码请走手机方式。</div>
 
-<section><div class="number">05</div><div><h2>无损升级</h2><ol>
+<h3>手机通知监听</h3>
+<p>在后台「插件配置」里打开<strong>微信个人收款监听</strong>，填 SmsForwarder 密钥、上传收款码并保存，然后建一条通道；把通知地址 <code>/api/pay/{通道ID}/notify</code> 和同一把密钥填进手机上的转发工具即可。</p>
+
+<h3>应用宝协议监听</h3>
+<p>桥接器每 15 秒检查支付站的待支付订单。有单时查询「收款小账本」流水，并将匹配结果上报到对应通道；没有待支付订单时不查询收款流水。</p>
+<p>先在后台建好「微信个人收款监听」的通道，记下<strong>通道号</strong>和该插件配置里的 <strong>SmsForwarder 密钥</strong>，然后启动容器：</p>
+<pre><button data-copy>复制</button><code>mkdir -p ./data &amp;&amp; chown -R 1000:1000 ./data
+
+docker run -d --name yyb-bridge --restart unless-stopped -e TZ=Asia/Shanghai -e WORKER_URL="你的支付站地址" -e CHANNEL_ID="你的通道号" -e SMS_FORWARDER_SECRET="后台该插件的SmsForwarder密钥" -e TRANSPORT_KEY="你的Watcher传输密钥" -v "$PWD/data":/app/var --security-opt no-new-privileges:true ghcr.io/suk-ldev/edgepay-yyb-bridge:latest</code></pre>
+<p>示例使用官方镜像 <code>ghcr.io/suk-ldev/edgepay-yyb-bridge</code>。容器无需对外开放端口；如使用镜像加速服务，请在更新时保持来源一致。</p>
+<ul class="fill-list">
+<li><code>你的通道号</code> —— 通道管理里那条微信个人收款通道的 ID，也就是 <code>/api/pay/<strong>8</strong>/notify</code> 里的数字。</li>
+<li><code>SMS_FORWARDER_SECRET</code> 与 <code>TRANSPORT_KEY</code> 是<strong>两把不同的钥匙</strong>：前者是后台该插件配置里的 SmsForwarder 密钥（上报到账用），后者是部署完成页的 <code>WATCHER_TRANSPORT_SECRET</code>（拉待支付订单用）。混填可能导致身份校验失败，请按对应字段分别复制。</li>
+<li><code>./data</code> —— 登录态、去重记录都在这里。<strong>去重记录丢了会导致同一笔流水被重复上报</strong>，务必持久化。</li>
+</ul>
+<p>首次启动看日志，里面直接给出微信扫码链接：</p>
+<pre><button data-copy>复制</button><code>docker logs -f yyb-bridge</code></pre>
+<pre><code>================ 请用微信扫码登录 ================
+  https://open.weixin.qq.com/connect/qrcode/xxxxxxxx
+  用浏览器打开上面的链接，用要收款的那个微信扫码并确认
+=================================================</code></pre>
+<p>在浏览器打开日志中的微信二维码链接，用实际收款账号扫码确认。无需额外开放端口。登录态保存在数据卷内；重启会复用，有效期届满后按日志提示重新登录。</p>
+<p>排查时可以分段自检，每一步失败的原因都被限制在一个已知范围内：</p>
+<pre><button data-copy>复制</button><code>docker exec yyb-bridge node bin/yyb-bridge.mjs selftest   # 上报链路：地址、通道号、SMS_FORWARDER_SECRET
+docker exec yyb-bridge node bin/yyb-bridge.mjs snapshot   # 快照链路：TRANSPORT_KEY、能否看见待支付订单
+docker exec yyb-bridge node bin/yyb-bridge.mjs probe      # 取数链路：打印小账本原始返回</code></pre>
+
+<h3>两个微信一起收款</h3>
+<p>一个微信收商业单、另一个微信收个人单时，在「插件配置」里点微信个人收款监听那行的<strong>复制</strong>：填写便于区分的名称，勾选“同时新建通道”，就会多出一个副本（编码形如 <code>wxpay_receipt~2</code>）和它自己的一条通道。</p>
+<ul class="fill-list">
+<li>两个账号的密钥、收款码、订单、流水去重全部分开；复制时不会带走原账号的密钥和收款码，必须各填各的。</li>
+<li>分流看<strong>通道权重</strong>：两条通道同为 <code>wxpay</code>，权重 70 / 30 就是七三分，把一边调成 0 就等于只走另一个账号。</li>
+<li>两个账号各自选监听方式：一个走手机、另一个走应用宝都可以。走应用宝的话<strong>一个微信一台容器</strong>：各自填自己的 <code>CHANNEL_ID</code>，再用 <code>-e PLUGIN_INSTANCE=1</code> 指定接管第几份配置（<code>0</code> 是默认配置，<code>1</code> 是第一份复制，插件列表里副本那行直接标着"配置 1"）。数据卷也要分开。</li>
+<li>桥接器<strong>只接管你指定的那一份</strong>，别的配置一概不碰。所以复制出副本后别忘了给它配监听端，否则那条通道的订单会一直挂到过期——真漏了的话，已在跑的那台桥接器会在日志里每半小时提醒一次。</li>
+<li>后台「渠道通知」里配好推送后，监听掉线的告警会直接写明<strong>是哪条通道、哪份配置</strong>（例如"#9 微信个人 · 个人号（配置 1）"），不用挨个进容器看日志。两个账号同时出事会各推一条，不会互相盖掉。</li>
+</ul>
+</div></section>
+
+
+
+<section class="guide-section" id="upgrade"><div class="number">06</div><div><h2>无损升级</h2><ol>
 <li>管理后台发现新版本时，点击“前往升级”；也可以直接打开 <a href="https://deploy.imsuk.cn">deploy.imsuk.cn</a>。</li>
 <li>填写原 Cloudflare 账号、原 Worker 项目名、公开访问地址和 License。</li>
 <li>向导发现同名 EdgePay 后会弹窗询问。确认升级后只替换程序文件。</li>
 <li>原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由都会保留，不需要重新填写后台配置。</li>
 </ol><div class="notice">如果同名 Worker 不是原 EdgePay，选择返回并重新填写项目名，向导不会覆盖它。</div></div></section>
 
-<section><div class="number">06</div><div><h2>更新与排错</h2><pre><button data-copy>复制</button><code># 更新镜像
+<section class="guide-section" id="troubleshooting"><div class="number">07</div><div><h2>更新与排错</h2><p>先记录页面或日志中的具体错误，再定位对应环节。分享日志前，请移除 Token、License、Cookie、密钥和付款信息。</p><pre><button data-copy>复制</button><code># 更新镜像
 docker compose pull &amp;&amp; docker compose up -d
 
 # 查看状态和最近日志
@@ -79,5 +155,5 @@ docker compose logs --tail=200 watcher
 
 # 核对实际镜像摘要
 docker inspect payment-watcher --format '{{.Image}}'</code></pre>
-<ul><li>出现“License 域名不匹配”：检查 <code>WORKER_URL</code>、Worker 的 <code>PUBLIC_BASE_URL</code> 与 License 域名。</li><li>出现传输签名错误：重新核对 <code>TRANSPORT_KEY</code>。</li><li>浏览器型插件启动失败：确认容器至少有 512 MiB 可用内存，并保留 <code>shm_size</code>。</li></ul></div></section>
-</main><script>document.querySelectorAll('[data-copy]').forEach(button=>button.onclick=async()=>{const text=button.nextElementSibling.textContent;await navigator.clipboard.writeText(text);button.textContent='已复制';setTimeout(()=>button.textContent='复制',1200)})</script></body></html>
+<ul><li>出现“License 域名不匹配”：检查 <code>WORKER_URL</code>、Worker 的 <code>PUBLIC_BASE_URL</code> 与 License 域名。</li><li>出现传输签名错误：重新核对 <code>TRANSPORT_KEY</code>。</li><li>浏览器型插件启动失败：确认使用 <code>latest-browser</code>、配置了共享内存，并根据容器日志检查可用内存。</li></ul></div></section>
+</main></div><footer class="docs-footer">EdgePay · 部署与使用文档 <a href="/">准备好了？打开部署向导 ↗</a></footer><script src="/guide.js?v=20260905-1"></script></body></html>

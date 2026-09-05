@@ -4,7 +4,7 @@ import { handleVerifyLicense } from './verify-license-handler.js';
 import { handleCheckProject } from './check-project-handler.js';
 import { handleLatestVersion } from './latest-version-handler.js';
 
-const NO_STORE_ASSETS = new Set(['/', '/index.html', '/wizard.js', '/wizard.css', '/guide.html']);
+const NO_STORE_ASSETS = new Set(['/', '/index.html', '/wizard.js', '/wizard.css', '/guide.html', '/guide.css', '/guide.js']);
 
 async function serveAsset(request, env, pathname) {
   const response = await env.ASSETS.fetch(request);

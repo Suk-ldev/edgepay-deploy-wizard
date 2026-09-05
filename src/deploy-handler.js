@@ -1,4 +1,5 @@
 import { readConfig } from './config.js';
+import { DEPLOY_JSON_MAX_BYTES, readBoundedJson } from './body-limits.js';
 import { CloudflareClient } from './lib/cf-client.js';
 import { verifyToken } from './lib/cf-token.js';
 import { createDatabase, applySchema } from './lib/cf-d1.js';
@@ -10,6 +11,7 @@ import { createProgressStream, STEP_LABELS } from './lib/progress-stream.js';
 import { DeployError, redact } from './lib/errors.js';
 import { licenseFetcher, normalizePublicBaseUrl, verifyLicense } from './lib/license-verifier.js';
 import { inspectWorker } from './lib/cf-worker-state.js';
+import { configureWechatMtls, validateWechatMtlsInput } from './lib/cf-mtls.js';
 
 const PROJECT_NAME_RE = /^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/;
 const ACCOUNT_ID_RE = /^[a-f0-9]{32}$/i;
@@ -31,6 +33,18 @@ export function validateInput(body) {
   if (body?.adminUsername !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(body.adminUsername)) {
     errors.adminUsername = '管理员用户名格式不对';
   }
+  if (
+    (body?.wechatMtlsCertificate !== undefined && typeof body.wechatMtlsCertificate !== 'string')
+    || (body?.wechatMtlsPrivateKey !== undefined && typeof body.wechatMtlsPrivateKey !== 'string')
+  ) {
+    errors.wechatMtls = '微信 mTLS 证书和私钥必须是 PEM 文本';
+  } else {
+    try {
+      validateWechatMtlsInput(body?.wechatMtlsCertificate, body?.wechatMtlsPrivateKey);
+    } catch (error) {
+      errors.wechatMtls = error.message;
+    }
+  }
   if (mode === 'install') {
     if (typeof body?.adminPassword !== 'string' || body.adminPassword.length < 8 || body.adminPassword.length > 128) {
       errors.adminPassword = '管理员密码必须填写，长度为 8 至 128 个字符';
@@ -51,9 +65,11 @@ export function validateInput(body) {
 export async function handleDeploy(request, env) {
   let body;
   try {
-    body = await request.json();
-  } catch {
-    return new Response(JSON.stringify({ error: '请求体不是合法 JSON' }), { status: 400 });
+    body = await readBoundedJson(request, DEPLOY_JSON_MAX_BYTES, '部署请求体');
+  } catch (error) {
+    return new Response(JSON.stringify({ error: String(error.message ?? '请求体不是合法 JSON') }), {
+      status: Number(error.status) || 400,
+    });
   }
 
   const validationErrors = validateInput(body);
@@ -76,8 +92,17 @@ export async function handleDeploy(request, env) {
 
   // 编排逻辑异步跑，边跑边往流里写进度；HTTP 响应立刻返回这个流。
   (async () => {
-    const client = new CloudflareClient(cfApiToken);
-    const secrets = [cfApiToken, body.edgepayLicense, body.adminPassword, body.watcherTransportSecret].filter(Boolean);
+    const mtlsCertificate = String(body.wechatMtlsCertificate ?? '');
+    const mtlsPrivateKey = String(body.wechatMtlsPrivateKey ?? '');
+    const client = new CloudflareClient(cfApiToken, [mtlsCertificate, mtlsPrivateKey]);
+    const secrets = [
+      cfApiToken,
+      body.edgepayLicense,
+      body.adminPassword,
+      body.watcherTransportSecret,
+      mtlsCertificate,
+      mtlsPrivateKey,
+    ].filter(Boolean);
     const step = (stage) => ({ stage, label: STEP_LABELS[stage] });
 
     try {
@@ -193,6 +218,45 @@ export async function handleDeploy(request, env) {
         await emit({ ...step('script_upload'), status: 'done' });
       }
 
+      let wechatMtls = {
+        configured: mode === 'upgrade' && existingWorker.wechatMtlsConfigured === true,
+        provided: false,
+        preserved: mode === 'upgrade' && existingWorker.wechatMtlsConfigured === true,
+      };
+      let wechatMtlsWarning = '';
+      if (mtlsCertificate && mtlsPrivateKey) {
+        await emit({ ...step('wechat_mtls'), status: 'started' });
+        try {
+          wechatMtls = await configureWechatMtls(client, cfAccountId, projectName, {
+            certificate: mtlsCertificate,
+            privateKey: mtlsPrivateKey,
+          });
+          const expiry = wechatMtls.expiresAt ? ` · 到期 ${wechatMtls.expiresAt}` : '';
+          await emit({
+            ...step('wechat_mtls'),
+            status: 'done',
+            detail: `${wechatMtls.reused ? '复用已上传证书' : '证书已上传并绑定'}${expiry}`,
+          });
+        } catch (error) {
+          wechatMtlsWarning = error instanceof DeployError ? error.message : '微信 mTLS 证书配置失败';
+          wechatMtls = {
+            configured: mode === 'upgrade' && existingWorker.wechatMtlsConfigured === true,
+            provided: true,
+            preserved: mode === 'upgrade' && existingWorker.wechatMtlsConfigured === true,
+          };
+          await emit({
+            ...step('wechat_mtls'),
+            status: 'warning',
+            message: wechatMtlsWarning,
+            detail: error instanceof DeployError ? redact(error.detail, secrets) : redact(String(error), secrets),
+          });
+        }
+      } else if (wechatMtls.configured) {
+        await emit({ ...step('wechat_mtls'), status: 'done', detail: '保留原 WECHAT_MTLS 证书绑定' });
+      } else {
+        await emit({ ...step('wechat_mtls'), status: 'done', detail: '未提供；微信支付 V2 API 退款暂不可用' });
+      }
+
       // 定时轮询：Cron 必须走独立的 schedules 接口，脚本上传 metadata 里带 triggers 无效。
       if (mode === 'upgrade') {
         await emit({ ...step('schedule_cron'), status: 'done', detail: '保留原有定时任务，未改动' });
@@ -246,6 +310,8 @@ export async function handleDeploy(request, env) {
           adminUsername,
           mode,
           domainBindingWarning,
+          wechatMtls,
+          wechatMtlsWarning,
           ...deploySecrets,
           note: mode === 'upgrade'
             ? `升级完成；原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由均已保留。${domainBindingWarning ? ' 自定义域名尚未绑定，修正 Cloudflare 域名状态后可再次无损升级重试。' : ''}`

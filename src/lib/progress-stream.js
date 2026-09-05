@@ -23,6 +23,7 @@ export const STEP_LABELS = {
   d1_schema: '建表',
   generate_secrets: '准备密钥与配置',
   script_upload: '上传 Worker 脚本',
+  wechat_mtls: '配置微信退款证书',
   schedule_cron: '注册定时轮询',
   bind_domain: '绑定自定义域名',
 };

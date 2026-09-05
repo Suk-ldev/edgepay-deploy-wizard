@@ -7,8 +7,9 @@ const CF_API_BASE = 'https://api.cloudflare.com/client/v4';
  * 不做任何缓存、不写任何存储；调用方负责在这次请求处理结束后丢弃 token。
  */
 export class CloudflareClient {
-  constructor(apiToken) {
+  constructor(apiToken, sensitiveValues = []) {
     this.apiToken = apiToken;
+    this.sensitiveValues = [apiToken, ...sensitiveValues].filter(Boolean).map(String);
   }
 
   async #request(path, { method = 'GET', body, headers = {}, stage } = {}) {
@@ -28,7 +29,7 @@ export class CloudflareClient {
     } catch (networkError) {
       throw new DeployError(stage ?? 'cf_request', 'Cloudflare API 请求失败（网络层错误）', {
         retryable: true,
-        detail: redact(String(networkError), [this.apiToken]),
+        detail: redact(String(networkError), this.sensitiveValues),
       });
     }
 
@@ -44,7 +45,7 @@ export class CloudflareClient {
       const messages = Array.isArray(json.errors) ? json.errors.map((e) => e.message).join('; ') : undefined;
       throw new DeployError(stage ?? 'cf_request', messages || `Cloudflare API 返回错误状态 ${response.status}`, {
         retryable: response.status >= 500,
-        detail: redact(JSON.stringify(json), [this.apiToken]),
+        detail: redact(JSON.stringify(json), this.sensitiveValues),
         status: response.status,
       });
     }
@@ -80,5 +81,9 @@ export class CloudflareClient {
 
   postMultipart(path, formData, opts) {
     return this.#request(path, { ...opts, method: 'POST', body: formData });
+  }
+
+  patchMultipart(path, formData, opts) {
+    return this.#request(path, { ...opts, method: 'PATCH', body: formData });
   }
 }

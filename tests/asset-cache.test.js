@@ -8,7 +8,7 @@ test('部署向导入口和脚本禁止浏览器继续使用旧版本缓存', as
       fetch: async () => new Response('asset', { headers: { 'Cache-Control': 'public, max-age=3600' } }),
     },
   };
-  for (const path of ['/', '/index.html', '/wizard.js', '/wizard.css', '/guide.html', '/guide.css', '/guide.js']) {
+  for (const path of ['/', '/index.html', '/wizard.js', '/wizard.css', '/guide', '/guide.html', '/guide.css', '/guide.js']) {
     const response = await route(new Request(`https://deploy.example${path}`), env);
     assert.equal(response.headers.get('Cache-Control'), 'no-store');
   }

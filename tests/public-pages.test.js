@@ -49,6 +49,15 @@ test('部署站点包含图标、License 获取入口和 Docker 教程', async (
   assert.ok(tokenExample.length > 10_000);
 });
 
+test('教程提供安卓监听端下载，且安装包随站点发布', async () => {
+  const guide = await readFile(new URL('../public/guide.html', import.meta.url), 'utf8');
+  assert.match(guide, /href="\/edgepay-watcher-android\.apk"/u, '手机通知监听节必须给出 APK 下载链接');
+  assert.match(guide, /通知使用权/u, '必须说明要授予通知使用权');
+  const apk = await readFile(new URL('../public/edgepay-watcher-android.apk', import.meta.url));
+  // APK 必须真随站点一起发布，否则下载链接 404。
+  assert.ok(apk.length > 10_000, 'public 下必须存在安卓安装包');
+});
+
 test('Docker watcher 教程给出可直接粘贴的单条指令，要填的地方用中文标出来', async () => {
   const guide = await readFile(new URL('../public/guide.html', import.meta.url), 'utf8');
   const command = guide.match(/docker run -d --name payment-watcher[^<]*/u)?.[0];

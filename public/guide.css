@@ -9,3 +9,6 @@ main{min-width:0;padding-bottom:60px}.intro{padding:48px 0 36px}.intro h1{font-s
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 .guide-section > div{min-width:0}
 html{scrollbar-color:#344050 #0c0f14;scrollbar-width:thin}.docs-sidebar nav,pre,.table-scroll{scrollbar-width:thin;scrollbar-color:#344050 #10151d}
+.dl-btn{display:inline-flex;align-items:center;gap:8px;margin:18px 0 4px;padding:11px 18px;border:1px solid #3a4657;border-radius:8px;background:#172133;color:#cbd9f0;text-decoration:none;font-weight:600;font-size:14px;transition:background .15s,border-color .15s}
+.dl-btn:hover{background:#1f2c40;border-color:#4a5a72;color:#e3ebff}
+.dl-meta{color:var(--muted);font-size:12px;margin:6px 0 0}

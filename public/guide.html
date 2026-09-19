@@ -114,38 +114,27 @@ docker compose logs -f --tail=100</code></pre>
 <div class="notice">App 里填的<strong>通道 ID</strong> 和 <strong>SmsForwarder 密钥</strong>必须和后台该插件配置完全一致，差一个空格都会被判为身份不符。密钥在支付后台“密钥管理”轮换后，手机端要同步改。</div>
 <p>也可以用第三方通知转发工具（如 SmsForwarder）：它们说同一套协议，把通知地址 <code>/api/pay/{通道ID}/notify</code> 和同一把密钥填进去即可，但需自行处理保活与掉线排查。</p>
 
-<h3>应用宝协议监听</h3>
-<p>桥接器每 15 秒检查支付站的待支付订单。有单时查询「收款小账本」流水，并将匹配结果上报到对应通道；没有待支付订单时不查询收款流水。</p>
-<p>先在后台建好「微信个人收款监听」的通道，记下<strong>通道号</strong>和该插件配置里的 <strong>SmsForwarder 密钥</strong>，然后启动容器：</p>
-<pre><button data-copy>复制</button><code>mkdir -p ./data &amp;&amp; chown -R 1000:1000 ./data
-
-docker run -d --name yyb-bridge --restart unless-stopped -e TZ=Asia/Shanghai -e WORKER_URL="你的支付站地址" -e CHANNEL_ID="你的通道号" -e SMS_FORWARDER_SECRET="后台该插件的SmsForwarder密钥" -e TRANSPORT_KEY="你的Watcher传输密钥" -v "$PWD/data":/app/var --security-opt no-new-privileges:true ghcr.io/suk-ldev/edgepay-yyb-bridge:latest</code></pre>
-<p>示例使用官方镜像 <code>ghcr.io/suk-ldev/edgepay-yyb-bridge</code>。容器无需对外开放端口；如使用镜像加速服务，请在更新时保持来源一致。</p>
-<ul class="fill-list">
-<li><code>你的通道号</code> —— 通道管理里那条微信个人收款通道的 ID，也就是 <code>/api/pay/<strong>8</strong>/notify</code> 里的数字。</li>
-<li><code>SMS_FORWARDER_SECRET</code> 与 <code>TRANSPORT_KEY</code> 是<strong>两把不同的钥匙</strong>：前者是后台该插件配置里的 SmsForwarder 密钥（上报到账用），后者是部署完成页的 <code>WATCHER_TRANSPORT_SECRET</code>（拉待支付订单用）。混填可能导致身份校验失败，请按对应字段分别复制。</li>
-<li><code>./data</code> —— 登录态、去重记录都在这里。<strong>去重记录丢了会导致同一笔流水被重复上报</strong>，务必持久化。</li>
-</ul>
-<p>首次启动看日志，里面直接给出微信扫码链接：</p>
-<pre><button data-copy>复制</button><code>docker logs -f yyb-bridge</code></pre>
+<h3>应用宝协议监听（付费插件 <code>yyb_receipt</code>）</h3>
+<p>应用宝协议服务已<strong>内置进官方 Docker Watcher 镜像</strong>（直连版与浏览器版都带），不需要再单独部署容器。买 <code>yyb_receipt</code> 插件、配好通道，已在跑的 Docker Watcher 就会自动接管这条通道。</p>
+<ol class="fill-list">
+<li>在 License 站购买 <code>yyb_receipt</code>（用同一个 License），并按第 04 步正常部署 Docker Watcher；<code>WORKER_URL</code> / <code>TRANSPORT_KEY</code> 都复用 Watcher 自己的，<strong>不需要额外的密钥或通道号</strong>。</li>
+<li>后台「插件配置」里打开<strong>微信个人收款(应用宝协议)</strong>，选识别模式（建议<strong>金额变动</strong>）、上传要收款那个微信的<strong>个人收款码</strong>并保存；再到通道管理建一条 <code>yyb_receipt</code> 通道。</li>
+<li>看 Docker Watcher 的日志，里面会直接给出微信扫码链接，用<strong>要收款的那个微信</strong>扫码登录：</li>
+</ol>
 <pre><code>================ 请用微信扫码登录 ================
   https://open.weixin.qq.com/connect/qrcode/xxxxxxxx
   用浏览器打开上面的链接，用要收款的那个微信扫码并确认
 =================================================</code></pre>
-<p>在浏览器打开日志中的微信二维码链接，用实际收款账号扫码确认。无需额外开放端口。登录态保存在数据卷内；重启会复用，有效期届满后按日志提示重新登录。</p>
-<p>排查时可以分段自检，每一步失败的原因都被限制在一个已知范围内：</p>
-<pre><button data-copy>复制</button><code>docker exec yyb-bridge node bin/yyb-bridge.mjs selftest   # 上报链路：地址、通道号、SMS_FORWARDER_SECRET
-docker exec yyb-bridge node bin/yyb-bridge.mjs snapshot   # 快照链路：TRANSPORT_KEY、能否看见待支付订单
-docker exec yyb-bridge node bin/yyb-bridge.mjs probe      # 取数链路：打印小账本原始返回</code></pre>
+<p>登录态保存在 Watcher 的数据卷内，重启会复用。它每 15 秒检查支付站的待支付订单，有单时才查「收款小账本」流水、按金额匹配后上报——上报走 Watcher 通道通知路径（用传输密钥验签、支付站 D1 去重），不借用微信个人通知通道，也不需要短信密钥。</p>
+<div class="notice"><strong>掉登录会自动暂停通道、重登自动恢复。</strong>登录失效或还没扫码时，这条通道会像安卓监听离线一样被支付站自动暂停（约 2 分钟）；重新扫码登录后自动恢复，无需人工开关通道。后台「渠道通知」配好推送后，掉线/恢复会主动提醒。</div>
 
 <h3>两个微信一起收款</h3>
 <p>一个微信收商业单、另一个微信收个人单时，在「插件配置」里点微信个人收款监听那行的<strong>复制</strong>：填写便于区分的名称，勾选“同时新建通道”，就会多出一个副本（编码形如 <code>wxpay_receipt~2</code>）和它自己的一条通道。</p>
 <ul class="fill-list">
 <li>两个账号的密钥、收款码、订单、流水去重全部分开；复制时不会带走原账号的密钥和收款码，必须各填各的。</li>
 <li>分流看<strong>通道权重</strong>：两条通道同为 <code>wxpay</code>，权重 70 / 30 就是七三分，把一边调成 0 就等于只走另一个账号。</li>
-<li>两个账号各自选监听方式：一个走手机、另一个走应用宝都可以。走应用宝的话<strong>一个微信一台容器</strong>：各自填自己的 <code>CHANNEL_ID</code>，再用 <code>-e PLUGIN_INSTANCE=1</code> 指定接管第几份配置（<code>0</code> 是默认配置，<code>1</code> 是第一份复制，插件列表里副本那行直接标着"配置 1"）。数据卷也要分开。</li>
-<li>桥接器<strong>只接管你指定的那一份</strong>，别的配置一概不碰。所以复制出副本后别忘了给它配监听端，否则那条通道的订单会一直挂到过期——真漏了的话，已在跑的那台桥接器会在日志里每半小时提醒一次。</li>
-<li>后台「渠道通知」里配好推送后，监听掉线的告警会直接写明<strong>是哪条通道、哪份配置</strong>（例如"#9 微信个人 · 个人号（配置 1）"），不用挨个进容器看日志。两个账号同时出事会各推一条，不会互相盖掉。</li>
+<li>两个账号各自选监听方式：手机方式（<code>wxpay_receipt</code>）多台手机即可；走应用宝（<code>yyb_receipt</code>）的话<strong>一个微信一台 Docker Watcher 容器</strong>——不支持在同一容器里登录多个微信，各挂独立的 <code>storage/</code>、各扫各的码。</li>
+<li>后台「渠道通知」里配好推送后，监听掉线的告警会直接写明<strong>是哪条通道</strong>。应用宝通道掉登录时会自动暂停、重新登录后自动恢复，各通道分别告警，不会互相盖掉。</li>
 </ul>
 </div></section>
 

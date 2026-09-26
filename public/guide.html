@@ -102,7 +102,7 @@ docker compose logs -f --tail=100</code></pre>
 <h3>手机通知监听</h3>
 <p>先在后台「插件配置」里打开<strong>微信个人收款监听</strong>，填 SmsForwarder 密钥、上传收款码并保存，再到通道管理建一条通道，记下<strong>通道 ID</strong> 和这份配置里的 <strong>SmsForwarder 密钥</strong>。手机端读取微信/支付宝的到账通知并上报，推荐用官方监听端 App：</p>
 <a class="dl-btn" href="/edgepay-watcher-android.apk" download>下载 EdgePay 安卓监听端</a>
-<p class="dl-meta">当前版本 v1.3.2 · Android 8.0 及以上 · 仅官方签名，覆盖安装需用同一来源的包。从第三方转发工具切过来时先卸载旧包。</p>
+<p class="dl-meta">当前版本 v1.3.3 · Android 8.0 及以上 · 仅官方签名，覆盖安装需用同一来源的包。从第三方转发工具切过来时先卸载旧包。</p>
 <ol class="fill-list">
 <li>安装后首次打开，按提示到系统设置里给 <strong>EdgePay Watcher</strong> 勾选<strong>通知使用权</strong>——这是读取到账通知的前提，不授权收不到任何通知。</li>
 <li>进「配置」页，<strong>Worker HTTPS 地址</strong>填支付站地址（与 <code>PUBLIC_BASE_URL</code> 完全一致，结尾不带斜杠）。</li>

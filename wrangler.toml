@@ -25,10 +25,10 @@ TEMPLATE_OWNER = "Suk-ldev"
 # COMMERCIAL_BUILD.json）。公开源码仓库不含付费插件，也构建不出可部署的 Worker。
 TEMPLATE_REPO = "edgepay-payment-dist"
 # 锁定的发行 commit，不跟分支自动漂移；升级发行版本时手动改这三个值。
-TEMPLATE_COMMIT_SHA = "44a8a24361f2ab59d3192ca2d2ffce8a65f97318"
-TEMPLATE_VERSION = "2.1.13"
+TEMPLATE_COMMIT_SHA = "585bc11841b270baf735968f39c8e494b75670a2"
+TEMPLATE_VERSION = "2.1.14"
 # 构建清单的 SHA-256。清单内再记录每个产物文件的哈希，钉住它即锁住整次发行。
-TEMPLATE_MANIFEST_SHA256 = "8aac2092b96b1607cff6b45ef84ab85d60a729af7aef2462cabb9e548b1f5270"
+TEMPLATE_MANIFEST_SHA256 = "3536d5bf7aa5959bd3e2c601e1c83c6da38cb200a09c24c7b236720ea5e6c5eb"
 
 # 发行仓库是私有的，GITHUB_TOKEN 是部署前置条件（不是限额扩容项）：
 #   npx wrangler secret put GITHUB_TOKEN

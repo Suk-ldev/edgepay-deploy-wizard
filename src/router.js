@@ -19,8 +19,26 @@ async function serveAsset(request, env, pathname) {
   });
 }
 
+// 给同 zone 的支付站检查更新用的 Custom Domain。支付站 Worker fetch 同 zone 上走路由的
+// deploy.imsuk.cn 会被 Cloudflare 拦下（1042），Custom Domain 不受这个限制。
+// 这里只开放版本接口：部署向导的页面和部署接口只在 deploy.imsuk.cn 一个入口上提供。
+export const VERSION_ONLY_HOSTS = new Set(['deploy-api.imsuk.eu.org']);
+
+function notFound() {
+  return new Response(JSON.stringify({ error: 'not found' }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 export async function route(request, env) {
   const url = new URL(request.url);
+
+  if (VERSION_ONLY_HOSTS.has(url.hostname)) {
+    return request.method === 'GET' && url.pathname === '/api/latest-version'
+      ? handleLatestVersion(env)
+      : notFound();
+  }
 
   if (request.method === 'POST' && url.pathname === '/api/deploy') {
     return handleDeploy(request, env);
@@ -37,12 +55,7 @@ export async function route(request, env) {
   if (request.method === 'GET' && url.pathname === '/api/latest-version') {
     return handleLatestVersion(env);
   }
-  if (url.pathname.startsWith('/api/')) {
-    return new Response(JSON.stringify({ error: 'not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  if (url.pathname.startsWith('/api/')) return notFound();
 
   return serveAsset(request, env, url.pathname);
 }

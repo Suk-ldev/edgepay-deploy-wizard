@@ -5,7 +5,10 @@ workers_dev = false
 preview_urls = false
 
 routes = [
-  { pattern = "deploy.imsuk.cn/*", zone_name = "imsuk.eu.org" }
+  { pattern = "deploy.imsuk.cn/*", zone_name = "imsuk.eu.org" },
+  # 只开放 /api/latest-version（见 src/router.js）。同 zone 的支付站检查更新时，
+  # fetch 走路由的 deploy.imsuk.cn 会被拦（1042），Custom Domain 不受限。
+  { pattern = "deploy-api.imsuk.eu.org", custom_domain = true }
 ]
 
 # 向导自己没有任何持久化绑定：不碰 D1、不碰 KV，纯无状态请求/响应。
@@ -25,10 +28,10 @@ TEMPLATE_OWNER = "Suk-ldev"
 # COMMERCIAL_BUILD.json）。公开源码仓库不含付费插件，也构建不出可部署的 Worker。
 TEMPLATE_REPO = "edgepay-payment-dist"
 # 锁定的发行 commit，不跟分支自动漂移；升级发行版本时手动改这三个值。
-TEMPLATE_COMMIT_SHA = "585bc11841b270baf735968f39c8e494b75670a2"
-TEMPLATE_VERSION = "2.1.14"
+TEMPLATE_COMMIT_SHA = "3b969d8ea005b9d66fe17f68c7896b8078e4e88d"
+TEMPLATE_VERSION = "2.1.15"
 # 构建清单的 SHA-256。清单内再记录每个产物文件的哈希，钉住它即锁住整次发行。
-TEMPLATE_MANIFEST_SHA256 = "3536d5bf7aa5959bd3e2c601e1c83c6da38cb200a09c24c7b236720ea5e6c5eb"
+TEMPLATE_MANIFEST_SHA256 = "19ae8e75ac628a08837efd6887213278bcd05bfcf97827deb01a2fccd286f2d3"
 
 # 发行仓库是私有的，GITHUB_TOKEN 是部署前置条件（不是限额扩容项）：
 #   npx wrangler secret put GITHUB_TOKEN

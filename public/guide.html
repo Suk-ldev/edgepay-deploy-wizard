@@ -102,14 +102,14 @@ docker compose logs -f --tail=100</code></pre>
 <h3>手机通知监听</h3>
 <p>先在后台「插件配置」里打开<strong>微信个人收款监听</strong>，填 SmsForwarder 密钥、上传收款码并保存，再到通道管理建一条通道，记下<strong>通道 ID</strong> 和这份配置里的 <strong>SmsForwarder 密钥</strong>。手机端读取微信/支付宝的到账通知并上报，推荐用官方监听端 App：</p>
 <a class="dl-btn" href="/edgepay-watcher-android.apk" download>下载 EdgePay 安卓监听端</a>
-<p class="dl-meta">当前版本 v1.3.3 · Android 8.0 及以上 · 仅官方签名，覆盖安装需用同一来源的包。从第三方转发工具切过来时先卸载旧包。</p>
+<p class="dl-meta">当前版本 v1.3.4 · Android 8.0 及以上 · 仅官方签名，覆盖安装需用同一来源的包。从第三方转发工具切过来时先卸载旧包。</p>
 <ol class="fill-list">
 <li>安装后首次打开，按提示到系统设置里给 <strong>EdgePay Watcher</strong> 勾选<strong>通知使用权</strong>——这是读取到账通知的前提，不授权收不到任何通知。</li>
 <li>进「配置」页，<strong>Worker HTTPS 地址</strong>填支付站地址（与 <code>PUBLIC_BASE_URL</code> 完全一致，结尾不带斜杠）。</li>
 <li>在「微信个人收款」里打开<strong>启用此平台</strong>，<strong>通道 ID</strong> 填上面那条通道的数字，<strong>SmsForwarder 密钥</strong>填后台该配置里的同一把。要同时收支付宝，就在「支付宝个人收款」里照样填一遍。</li>
 <li>打开「运行开关 → <strong>启用到账监听</strong>」。</li>
 <li>「后台保障」里按机型开启<strong>开机自启</strong>并把本应用加入<strong>电池优化白名单</strong>；一加 / OPPO（ColorOS）等国产系统还要在系统设置里关掉对本应用的<strong>后台冻结 / 自启限制</strong>，否则监听会被系统杀掉。</li>
-<li>到「测试工具」页点<strong>测试签名</strong>确认能连通；「运行日志」里正常每分钟一条“心跳已发送”，上报或心跳失败时日志会直接写明原因（握手被拒、密钥不符、配置未解出等）。</li>
+<li>到「测试工具」页点<strong>测试心跳</strong>确认能连通；「运行日志」里正常每分钟一条“心跳已发送”，上报或心跳失败时日志会直接写明原因（握手被拒、密钥不符、配置未解出等）。</li>
 </ol>
 <div class="notice">App 里填的<strong>通道 ID</strong> 和 <strong>SmsForwarder 密钥</strong>必须和后台该插件配置完全一致，差一个空格都会被判为身份不符。密钥在支付后台“密钥管理”轮换后，手机端要同步改。</div>
 <p>也可以用第三方通知转发工具（如 SmsForwarder）：它们说同一套协议，把通知地址 <code>/api/pay/{通道ID}/notify</code> 和同一把密钥填进去即可，但需自行处理保活与掉线排查。</p>

@@ -19,7 +19,11 @@
 <li>客户项目只创建一个 D1，页面随 Worker 程序发布，不额外创建 KV 或静态资源命名空间。同名 D1 仅在没有订单、插件配置和运行配置时复用。</li>
 <li>确认后开始部署，保存完成页显示的所有密钥，尤其是 <code>ADMIN_TOKEN</code> 和 <code>WATCHER_TRANSPORT_SECRET</code>。</li>
 <li>向导会把 License 域名直接绑定到支付 Worker，不启用 <code>workers.dev</code>；该域名必须位于当前 Cloudflare 账号。</li>
-</ol><h3 id="credentials">API Token 与 Account ID 去哪里找？</h3><p>在 <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">Cloudflare API Token 页面</a>创建自定义令牌。在目标账户的概览或 Workers &amp; Pages 页面复制 <strong>Account ID</strong>，它是 32 位十六进制字符，不是域名的 Zone ID。Token 的账户资源范围必须包含这个账户。</p><p>权限示例见下图：账户级 <code>D1:Edit</code> 与 <code>Workers Scripts:Edit</code>，账户资源选择实际部署账号。需要上传微信退款 mTLS 证书时，再加账户级 <code>SSL and Certificates:Edit</code>；如果证书权限探测提示异常但你已确认权限齐全，可以继续部署，最终以 Cloudflare 上传步骤返回为准。</p><img class="guide-shot" src="/cloudflare-token-example.png" alt="Cloudflare API Token 权限配置示例" loading="lazy"></div></section>
+</ol><h3 id="cf-poll">后台定时轮询（Cron）与可选的 tick 地址</h3><p>部署向导默认勾选“启用每分钟 Cron 自动轮询收款”：Worker 每分钟自动跑一轮订单过期、商户通知重投、监听端掉线巡检和收款轮询，不需要额外配置。</p><ul class="fill-list">
+<li><strong>可选：</strong>想比每分钟更快确认到账，或部署时没有启用 Cron，可以用外部定时器每 7～15 秒访问一次 <code>https://你的支付域名/internal/tick?token=你的POLL_TRIGGER_TOKEN</code>。它做的事和 Cron 完全一样，返回值里的 <code>receipt_poll</code> 是这一轮收款轮询的明细。</li>
+<li>完整地址在支付站后台“使用文档 → Worker 主动查询”里可以直接复制。已经启用 Cron、到账速度也满意时，不需要配它。</li>
+</ul>
+<h3 id="credentials">API Token 与 Account ID 去哪里找？</h3><p>在 <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">Cloudflare API Token 页面</a>创建自定义令牌。在目标账户的概览或 Workers &amp; Pages 页面复制 <strong>Account ID</strong>，它是 32 位十六进制字符，不是域名的 Zone ID。Token 的账户资源范围必须包含这个账户。</p><p>权限示例见下图：账户级 <code>D1:Edit</code> 与 <code>Workers Scripts:Edit</code>，账户资源选择实际部署账号。需要上传微信退款 mTLS 证书时，再加账户级 <code>SSL and Certificates:Edit</code>；如果证书权限探测提示异常但你已确认权限齐全，可以继续部署，最终以 Cloudflare 上传步骤返回为准。</p><img class="guide-shot" src="/cloudflare-token-example.png" alt="Cloudflare API Token 权限配置示例" loading="lazy"></div></section>
 
 <section class="guide-section" id="makers"><div class="number">02B</div><div><h2>部署到 EdgeOne Makers（腾讯云）</h2><p>主要面向中国大陆用户、域名已备案时选这个平台。程序、后台和插件与 Cloudflare 版完全一样，差别只在平台：数据库用你自备的 PostgreSQL，定时任务要自己配一个定时器，域名在 Makers 控制台绑定。</p>
 <h3>先准备这几项</h3><ul class="fill-list">

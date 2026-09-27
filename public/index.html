@@ -128,7 +128,7 @@
       <label class="field">
         <span>后台定时轮询</span>
         <span class="check-inline"><input type="checkbox" id="enableCron" checked /> 启用每分钟 Cron 自动轮询收款</span>
-        <small>每分钟自动查询收款。关闭后需由收银台或自行定时请求触发轮询；监听类插件请至少保留一种触发方式。无损升级保留原定时任务。</small>
+        <small>每分钟自动跑一轮收款轮询、订单过期和通知重投。关闭后可以用外部定时器访问 <code>/internal/tick</code>（可选，见教程）代替；监听类插件请至少保留一种触发方式。无损升级保留原定时任务。</small>
       </label>
 
       <label class="field">

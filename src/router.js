@@ -3,9 +3,10 @@ import { handleVerifyToken } from './verify-token-handler.js';
 import { handleVerifyLicense } from './verify-license-handler.js';
 import { handleCheckProject } from './check-project-handler.js';
 import { handleLatestVersion } from './latest-version-handler.js';
+import { handleMakersCheckProject, handleMakersDeploy, handleMakersVerifyToken } from './makers-handlers.js';
 
 // Static Assets canonicalizes /guide.html to /guide; both paths must use fresh content.
-const NO_STORE_ASSETS = new Set(['/', '/index.html', '/wizard.js', '/wizard.css', '/guide', '/guide.html', '/guide.css', '/guide.js']);
+const NO_STORE_ASSETS = new Set(['/', '/index.html', '/wizard.js', '/makers-wizard.js', '/wizard.css', '/guide', '/guide.html', '/guide.css', '/guide.js']);
 
 async function serveAsset(request, env, pathname) {
   const response = await env.ASSETS.fetch(request);
@@ -43,6 +44,15 @@ export async function route(request, env) {
   }
   if (request.method === 'GET' && url.pathname === '/api/latest-version') {
     return handleLatestVersion(env);
+  }
+  if (request.method === 'POST' && url.pathname === '/api/makers/verify-token') {
+    return handleMakersVerifyToken(request);
+  }
+  if (request.method === 'POST' && url.pathname === '/api/makers/check-project') {
+    return handleMakersCheckProject(request);
+  }
+  if (request.method === 'POST' && url.pathname === '/api/makers/deploy') {
+    return handleMakersDeploy(request, env);
   }
   if (url.pathname.startsWith('/api/')) return notFound();
 

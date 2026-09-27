@@ -29,3 +29,19 @@ export const STEP_LABELS = {
 };
 
 export const STEP_ORDER = Object.keys(STEP_LABELS);
+
+/** EdgeOne Makers 流程的步骤。 */
+export const MAKERS_STEP_LABELS = {
+  validate: '校验输入',
+  verify_token: '校验 Makers API Token',
+  license_verify: '校验 EdgePay License',
+  project_check: '检查同名项目',
+  template_fetch: '拉取发行版本',
+  package: '组装部署包',
+  project_create: '创建 Makers 项目',
+  env_config: '写入环境变量与密钥',
+  upload: '上传部署包',
+  deploy: '等待 Makers 构建',
+  health_check: '检查支付站与数据库',
+};
+

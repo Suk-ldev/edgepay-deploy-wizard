@@ -61,13 +61,13 @@ h2:focus { outline: none; }
 .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px #557cf61f; }
 .field small { color: var(--muted); font-size: 12px; font-weight: 400; }
 .field .check-inline { display: flex; align-items: center; gap: 10px; font-weight: 400; cursor: pointer; }
-.field input[type=checkbox] { width: 17px; height: 17px; flex: none; margin: 0; accent-color: var(--accent); }
+.field input[type=checkbox], .field input[type=radio] { width: 17px; height: 17px; flex: none; margin: 0; padding: 0; accent-color: var(--accent); }
 .field-link { float: right; color: var(--accent-hover); font-size: 12px; text-decoration: none; }
 .license-field { border-left: 2px solid var(--accent); padding-left: 18px; }
 .license-status { display: block; font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
 .license-status:empty { display: none; }
 .license-status.ok { color: var(--ok); }.license-status.bad { color: var(--danger); }
-.error { color: var(--danger); font-size: 13px; margin: 10px 0; overflow-wrap: anywhere; }
+.error { color: var(--danger); font-size: 13px; margin: 10px 0; overflow-wrap: anywhere; white-space: pre-line; }
 .error:empty { display: none; }
 .actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); }
 .btn { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; font: 600 13px var(--font-ui); padding: 11px 20px; border: 1px solid transparent; border-radius: 7px; cursor: pointer; text-decoration: none; transition: background .15s, border-color .15s, transform .15s; }
@@ -104,6 +104,18 @@ code { font-family: var(--font-mono); font-size: .92em; overflow-wrap: anywhere;
 .confirm-dialog .preserve-note { background: #182130; padding: 14px; border-radius: 7px; color: #c1d2f0; }
 .foot { grid-column: 2; margin-top: 24px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 11px; }
 .foot a { color: var(--muted); text-decoration: none; }
+.platform-options { display: grid; gap: 14px; }
+.platform-option { display: grid; gap: 6px; text-align: left; padding: 20px 22px; background: var(--bg); color: var(--ink); border: 1px solid #344050; border-radius: 10px; cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
+.platform-option:hover { border-color: var(--accent); background: var(--surface-2); transform: translateY(-1px); }
+.platform-option strong { font-size: 16px; }
+.platform-option span { color: #c3cddb; font-size: 13px; }
+.platform-option small { color: var(--muted); font-size: 12px; }
+.field > .check-inline { font-size: 13px; }
+.token-help ol { padding-left: 22px; }
+.followup { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; }
+.followup h3 { margin: 0 0 10px; font-size: 16px; }
+.followup p, .followup li { color: #c3cddb; }
+.followup .result-list { margin: 14px 0; }
 @keyframes enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pulse { 50% { opacity: .35; } }
 @media (max-width: 960px) { .page { grid-template-columns: 220px minmax(0, 1fr); gap: 30px; padding-top: 32px; }.card { padding: 28px; }.brand-title { font-size: 22px; } }

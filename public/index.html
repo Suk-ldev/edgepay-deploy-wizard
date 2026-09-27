@@ -4,9 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>EdgePay · 部署工作台</title>
-<meta name="description" content="在自己的 Cloudflare 账户部署或升级 EdgePay。按步骤校验凭据、绑定授权域名并完成发布。" />
+<meta name="description" content="在自己的 Cloudflare 或 EdgeOne Makers 账户部署或升级 EdgePay。按步骤校验凭据、绑定授权域名并完成发布。" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-<link rel="stylesheet" href="/wizard.css?v=20260905-1" />
+<link rel="stylesheet" href="/wizard.css?v=20260927-1" />
 </head>
 <body>
 <a class="skip-link" href="#workspace">跳转到部署表单</a>
@@ -17,23 +17,47 @@
 <div class="page">
   <aside class="sidebar" aria-label="部署流程">
   <header class="brand">
-    <p class="eyebrow">CLOUDFLARE WORKERS</p>
+    <p class="eyebrow" id="flow-eyebrow">选择部署平台</p>
     <h1 class="brand-title">部署你的 EdgePay</h1>
     <p class="brand-sub">新建部署或更新现有项目，<br />所有资源都在你自己的账户中。</p>
   </header>
 
-  <ol class="steps" id="steps">
+  <ol class="steps" id="steps" hidden>
     <li data-step="1" class="active" aria-current="step"><span class="step-dot">1</span><span class="step-text">连接 Cloudflare<small>验证 Token 与账户</small></span></li>
     <li data-step="2"><span class="step-dot">2</span><span class="step-text">填写部署信息<small>设置项目与 License</small></span></li>
     <li data-step="3"><span class="step-dot">3</span><span class="step-text">确认并部署<small>核对配置，查看发布进度</small></span></li>
     <li data-step="4"><span class="step-dot">4</span><span class="step-text">保存部署结果<small>进入后台配置收款通道</small></span></li>
+  </ol>
+  <ol class="steps" id="steps-makers" hidden>
+    <li data-step="1"><span class="step-dot">1</span><span class="step-text">连接 EdgeOne Makers<small>验证 API Token</small></span></li>
+    <li data-step="2"><span class="step-dot">2</span><span class="step-text">填写部署信息<small>项目、数据库与 License</small></span></li>
+    <li data-step="3"><span class="step-dot">3</span><span class="step-text">确认并部署<small>核对配置，查看发布进度</small></span></li>
+    <li data-step="4"><span class="step-dot">4</span><span class="step-text">保存结果并配置轮询<small>绑定域名、设置定时访问</small></span></li>
   </ol>
   <div class="sidebar-help"><span class="help-title">第一次部署？</span><p>先准备正式域名和永久 License。免费插件也需要生成授权。</p><a href="/guide.html#prepare">查看准备清单 <span aria-hidden="true">↗</span></a></div>
   </aside>
 
   <main class="card" id="workspace" tabindex="-1">
 
-    <section class="screen active" id="screen-1">
+    <section class="screen active" id="screen-0">
+      <p class="eyebrow">开始之前</p>
+      <h2 tabindex="-1">选择部署平台</h2>
+      <p class="hint">两个平台跑的是同一套支付程序，后台和插件完全一样。已经部署过的项目，请选原来的平台来升级。</p>
+      <div class="platform-options">
+        <button type="button" class="platform-option" data-platform-choice="cloudflare">
+          <strong>Cloudflare Workers</strong>
+          <span>数据库用 Cloudflare D1，由向导全自动创建；可开启每分钟自动轮询；域名必须在同一个 Cloudflare 账号里。</span>
+          <small>适合已有 Cloudflare 账号、主要面向海外用户</small>
+        </button>
+        <button type="button" class="platform-option" data-platform-choice="makers">
+          <strong>EdgeOne Makers（腾讯云）</strong>
+          <span>数据库用你自备的 PostgreSQL，首次访问时自动建表；需要自己配置一个每 7～15 秒访问一次的定时器；域名在 Makers 控制台绑定。</span>
+          <small>适合主要面向中国大陆用户、域名已备案</small>
+        </button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-1">
       <p class="eyebrow">STEP 01 / 04</p>
       <h2 tabindex="-1">连接 Cloudflare</h2>
       <p class="hint">使用专用 API Token，验证后再填写项目配置。此步骤不会创建或修改资源。</p>
@@ -61,6 +85,7 @@
       <p class="error" id="step1-error" role="alert"></p>
 
       <div class="actions">
+        <button class="btn btn-ghost" data-back>更换平台</button>
         <button class="btn btn-primary" id="step1-next">验证并下一步</button>
       </div>
     </section>
@@ -189,12 +214,197 @@
       </div>
     </section>
 
+
+    <section class="screen" id="screen-m1">
+      <p class="eyebrow">STEP 01 / 04 · EDGEONE MAKERS</p>
+      <h2 tabindex="-1">连接 EdgeOne Makers</h2>
+      <p class="hint">使用 Makers API Token，验证后再填写项目配置。此步骤不会创建或修改资源。</p>
+      <div class="credential-note"><span aria-hidden="true">↳</span><p>Token 仅用于本次请求，不保存、不写入日志。<br />Makers Token 可以管理整个账号的项目，部署完成后可到控制台删除。</p></div>
+
+      <details class="token-help">
+        <summary>还没有 Token？查看创建方法</summary>
+        <ol>
+          <li>先开通 EdgeOne Makers（中国站在 <a href="https://console.cloud.tencent.com/edgeone/pages" target="_blank" rel="noopener">腾讯云控制台 ↗</a>，国际站在 <a href="https://console.tencentcloud.com/edgeone/pages" target="_blank" rel="noopener">Tencent Cloud 控制台 ↗</a>）。</li>
+          <li>在 Makers 控制台的 <strong>API Token</strong> 页面创建一个 Token，有效期按需设置，复制保存。</li>
+          <li>下面选择 Token 所在的站点：中国站和国际站的 Token 不通用。</li>
+        </ol>
+        <p>详见官方文档 <a href="https://pages.edgeone.ai/document/api-token" target="_blank" rel="noopener">API Token ↗</a>。</p>
+      </details>
+
+      <div class="field">
+        <span>账号站点</span>
+        <label class="check-inline"><input type="radio" name="makersSite" value="china" checked /> 中国站（console.cloud.tencent.com）</label>
+        <label class="check-inline"><input type="radio" name="makersSite" value="global" /> 国际站（console.tencentcloud.com）</label>
+      </div>
+
+      <label class="field">
+        <span>Makers API Token</span>
+        <input type="password" id="makersToken" autocomplete="off" spellcheck="false" placeholder="粘贴 Makers 控制台生成的 API Token" aria-describedby="m1-error" />
+      </label>
+
+      <p class="error" id="m1-error" role="alert"></p>
+
+      <div class="actions">
+        <button class="btn btn-ghost" data-back>更换平台</button>
+        <button class="btn btn-primary" id="m1-next">验证并下一步</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-m2">
+      <p class="eyebrow">STEP 02 / 04 · EDGEONE MAKERS</p>
+      <h2 tabindex="-1">填写部署信息</h2>
+      <p class="hint">新建部署请填写数据库和管理员密码；升级请填写原项目名，原有配置和数据都会保留。</p>
+      <h3 class="form-section">项目与数据库</h3>
+
+      <label class="field">
+        <span>项目名</span>
+        <input type="text" id="mkProjectName" placeholder="例如 edgepay" />
+        <small>Makers 项目名，也是默认域名的前缀；只能用小写字母、数字和短横线。</small>
+      </label>
+
+      <div class="field" id="mk-area-field">
+        <span>加速区域</span>
+        <label class="check-inline"><input type="radio" name="mkArea" value="global" checked /> 全球（含中国大陆）—— 自定义域名必须已完成 ICP 备案</label>
+        <label class="check-inline"><input type="radio" name="mkArea" value="overseas" /> 中国大陆以外 —— 免备案，大陆访问速度和 Cloudflare 差不多</label>
+        <small>只在新建时生效；升级沿用原项目的区域。</small>
+      </div>
+
+      <label class="field">
+        <span>PostgreSQL 连接串</span>
+        <input type="password" id="mkDatabaseUrl" autocomplete="off" spellcheck="false" placeholder="postgres://用户:密码@主机:5432/库名" />
+        <small>自备 PostgreSQL（14 及以上），必须允许公网连接，账号需要有建表权限；支付站第一次访问时自动建表。建议开启 SSL，在连接串末尾加 <code>?sslmode=require&amp;uselibpqcompat=true</code>。升级时留空即沿用原连接串。</small>
+      </label>
+
+      <h3 class="form-section" id="mk-admin-section">管理员</h3>
+      <label class="field">
+        <span>管理员用户名</span>
+        <input type="text" id="mkAdminUsername" value="admin" />
+      </label>
+      <label class="field">
+        <span>管理员密码</span>
+        <input type="password" id="mkAdminPassword" autocomplete="new-password" placeholder="新建部署必填，至少 8 个字符" />
+        <small>新建部署必填；无损升级会保留原密码，不会使用这里填写的内容。</small>
+      </label>
+      <label class="field">
+        <span>确认管理员密码</span>
+        <input type="password" id="mkAdminPasswordConfirm" autocomplete="new-password" placeholder="再次输入管理员密码" />
+      </label>
+
+      <h3 class="form-section">监听与访问</h3>
+      <label class="field">
+        <span>Watcher 通信密钥（可选）</span>
+        <input type="password" id="mkWatcherTransportSecret" autocomplete="off" placeholder="留空自动生成；自定义时至少 24 个字符" />
+        <small>用于 Docker Watcher 与支付站的请求签名，部署完成后填写到容器的 <code>TRANSPORT_KEY</code>。</small>
+      </label>
+
+      <label class="field">
+        <span>公开访问地址</span>
+        <input type="text" id="mkPublicBaseUrl" placeholder="可留空，验证 License 后自动填写绑定域名" />
+        <small>必须与 License 绑定域名一致。部署完成后要在 Makers 控制台把这个域名绑定到项目。</small>
+      </label>
+
+      <label class="field license-field">
+        <span>EdgePay 永久 License <a class="field-link" href="https://license.imsuk.cn" target="_blank" rel="noopener">获取 License →</a></span>
+        <input type="password" id="mkEdgepayLicense" autocomplete="off" required placeholder="EPL1...；免费插件也需要先生成 License" />
+        <small>向导会先在线验签并核对绑定域名，再写入 Makers 环境变量。</small>
+        <strong class="license-status" id="mk-license-status" role="status"></strong>
+      </label>
+
+      <details class="token-help mtls-help">
+        <summary>微信支付 V2 API 退款证书（可选）</summary>
+        <p>仅使用微信支付官方 API 且需要原路退款时配置。两个文件必须一起选择，会写入 Makers 项目的环境变量。</p>
+        <label class="field">
+          <span>商户 API 证书（apiclient_cert.pem）</span>
+          <input type="file" id="mkWechatMtlsCertificate" accept=".pem,application/x-pem-file" />
+        </label>
+        <label class="field">
+          <span>商户 API 私钥（apiclient_key.pem）</span>
+          <input type="file" id="mkWechatMtlsPrivateKey" accept=".pem,application/x-pem-file" />
+        </label>
+        <small>无损升级不选文件会保留现有证书；重新选择两个文件可换证。</small>
+      </details>
+
+      <p class="error" id="m2-error" role="alert"></p>
+
+      <div class="actions">
+        <button class="btn btn-ghost" data-back>上一步</button>
+        <button class="btn btn-primary" id="m2-next">下一步</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-m3">
+      <p class="eyebrow">STEP 03 / 04 · EDGEONE MAKERS</p>
+      <h2 tabindex="-1">确认并部署</h2>
+      <p class="hint">核对项目、操作方式和授权。点击开始后，请保持页面打开直至发布完成（Makers 构建通常需要 1～2 分钟）。</p>
+
+      <table class="summary">
+        <tbody>
+          <tr><th>部署平台</th><td>EdgeOne Makers</td></tr>
+          <tr><th>操作方式</th><td id="mk-summary-mode"></td></tr>
+          <tr><th>项目名</th><td id="mk-summary-project"></td></tr>
+          <tr><th>账号站点</th><td id="mk-summary-site"></td></tr>
+          <tr><th>加速区域</th><td id="mk-summary-area"></td></tr>
+          <tr><th>数据库</th><td id="mk-summary-database"></td></tr>
+          <tr><th>管理员</th><td id="mk-summary-admin"></td></tr>
+          <tr><th>Watcher 通信密钥</th><td id="mk-summary-watcher-secret"></td></tr>
+          <tr><th>API Token</th><td id="mk-summary-token"></td></tr>
+          <tr><th>License</th><td id="mk-summary-license"></td></tr>
+          <tr><th>微信退款证书</th><td id="mk-summary-wechat-mtls"></td></tr>
+        </tbody>
+      </table>
+
+      <ol class="progress" id="mk-progress-list" aria-live="polite" aria-label="部署进度"></ol>
+
+      <div class="result-list" id="mk-early-secrets" hidden></div>
+      <p class="error" id="m3-error" role="alert"></p>
+
+      <div class="actions">
+        <button class="btn btn-ghost" data-back id="m3-back">上一步</button>
+        <button class="btn btn-primary" id="mk-deploy-btn">开始部署</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-m4">
+      <p class="eyebrow">STEP 04 / 04 · EDGEONE MAKERS</p>
+      <h2 id="mk-complete-title" tabindex="-1">部署完成</h2>
+      <p class="hint warn" id="mk-result-hint"></p>
+
+      <div class="result-list" id="mk-result-list"></div>
+
+      <section class="followup" id="mk-domain-steps">
+        <h3>绑定自定义域名</h3>
+        <ol>
+          <li>打开 <a id="mk-console-link" href="#" target="_blank" rel="noopener">Makers 控制台中的这个项目 ↗</a>，进入<strong>域名管理</strong>，添加 <code class="mk-domain">你的域名</code>。</li>
+          <li>按控制台提示到域名解析服务商添加 CNAME 记录，等状态变成已生效。</li>
+          <li>加速区域含中国大陆时，域名必须已完成 ICP 备案，否则无法绑定。</li>
+          <li>绑定生效前，支付回调、收银台链接和 License 在线校验都用不了；可以先用下面的默认域名打开后台做配置（中国大陆访问默认域名需要控制台生成的预览链接）。</li>
+        </ol>
+      </section>
+
+      <section class="followup" id="mk-poll-steps">
+        <h3>配置定时轮询（必须）</h3>
+        <p>Makers 没有分钟级定时任务。请用一个定时器<strong>每 7～15 秒</strong>访问一次下面的地址，支付站每被访问一次就完整跑一轮：订单过期、商户通知重投、监听端掉线巡检和收款轮询。只需要配这一个地址。</p>
+        <div class="result-list" id="mk-poll-list"></div>
+        <ul>
+          <li>建议 10 秒一次：间隔越短到账确认越快，但函数调用次数越多（10 秒一次约每月 26 万次）；超过 15 秒会明显拖慢到账确认和通知重投。</li>
+          <li>没有待处理订单时这个地址只查一次数据库就返回，空跑成本很低。</li>
+          <li>不配的话，只有收银台打开期间才会查询到账；订单不会自动过期，商户通知失败也不会重投。</li>
+          <li>地址里带着轮询 Token，不要公开；泄露后到后台“密钥管理”轮换轮询 Token，再更新定时器。</li>
+          <li>以后也可以在支付站后台“使用文档 → 定时轮询”里复制这条地址和命令。</li>
+        </ul>
+      </section>
+
+      <div class="actions">
+        <a class="btn btn-primary" id="mk-open-admin" href="#" target="_blank" rel="noopener">打开管理后台</a>
+        <a class="btn btn-ghost" href="/guide.html#makers" target="_blank" rel="noopener">查看 Makers 部署教程</a>
+      </div>
+    </section>
   </main>
 
   <dialog id="upgrade-dialog" class="confirm-dialog" aria-labelledby="upgrade-title">
     <h2 id="upgrade-title">发现同名 Worker</h2>
     <p id="upgrade-message"></p>
-    <p class="preserve-note">选择升级时只替换程序文件，原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由全部保留。</p>
+    <p class="preserve-note" id="upgrade-preserve-note">选择升级时只替换程序文件，原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由全部保留。</p>
     <div class="actions">
       <button class="btn btn-ghost" id="upgrade-rename" type="button">返回重设名称</button>
       <button class="btn btn-primary" id="upgrade-confirm" type="button">这是原版本，开始升级</button>
@@ -204,6 +414,7 @@
   <footer class="foot"><span>EdgePay · 自有账户部署</span><a href="/guide.html#channels">部署后，如何完成第一笔收款？ ↗</a></footer>
 </div>
 
-<script src="/wizard.js?v=20260905-1"></script>
+<script src="/wizard.js?v=20260927-1"></script>
+<script src="/makers-wizard.js?v=20260927-1"></script>
 </body>
 </html>

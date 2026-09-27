@@ -33,10 +33,23 @@ const STEP_ORDER = Object.keys(STEP_LABELS);
 
 function $(id) { return document.getElementById(id); }
 
-function showScreen(n) {
+const FLOW_EYEBROWS = { choose: '选择部署平台', cloudflare: 'CLOUDFLARE WORKERS', makers: 'EDGEONE MAKERS' };
+
+/** 屏幕编号：0 是平台选择；1～4 是 Cloudflare 流程；m1～m4 是 Makers 流程。 */
+function screenFlow(id) {
+  if (String(id) === '0') return 'choose';
+  return String(id).startsWith('m') ? 'makers' : 'cloudflare';
+}
+
+function showScreen(id, { focus = true } = {}) {
+  const flow = screenFlow(id);
+  const n = Number(String(id).replace(/^m/u, ''));
   document.querySelectorAll('.screen').forEach((el) => el.classList.remove('active'));
-  $(`screen-${n}`).classList.add('active');
-  document.querySelectorAll('#steps li').forEach((li) => {
+  $(`screen-${id}`).classList.add('active');
+  $('flow-eyebrow').textContent = FLOW_EYEBROWS[flow];
+  $('steps').hidden = flow !== 'cloudflare';
+  $('steps-makers').hidden = flow !== 'makers';
+  document.querySelectorAll(flow === 'makers' ? '#steps-makers li' : '#steps li').forEach((li) => {
     const step = Number(li.dataset.step);
     const isDone = step < n;
     li.classList.toggle('active', step === n);
@@ -45,7 +58,8 @@ function showScreen(n) {
     else li.removeAttribute('aria-current');
     li.querySelector('.step-dot').textContent = isDone ? '✓' : String(step);
   });
-  $(`screen-${n}`).querySelector('h2').focus({ preventScroll: true });
+  if (!focus) return;
+  $(`screen-${id}`).querySelector('h2').focus({ preventScroll: true });
   $('workspace').scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
 }
 
@@ -58,6 +72,18 @@ const initialQuery = new URLSearchParams(location.search);
 if (initialQuery.get('project')) $('projectName').value = initialQuery.get('project');
 if (initialQuery.get('publicBaseUrl')) $('publicBaseUrl').value = initialQuery.get('publicBaseUrl');
 if (initialQuery.get('setup') === 'wechat-mtls') $('wechat-mtls-setup').open = true;
+
+// 从支付站后台"前往升级"进来时带着 platform；老版本 Cloudflare 站点的链接只有 mode=upgrade。
+const initialPlatform = initialQuery.get('platform')
+  || (initialQuery.get('mode') === 'upgrade' ? 'cloudflare' : '');
+// 页面刚打开时只切换屏幕，不抢焦点、不滚动。
+if (initialPlatform === 'makers') showScreen('m1', { focus: false });
+else if (initialPlatform === 'cloudflare') showScreen(1, { focus: false });
+else showScreen(0, { focus: false });
+
+document.querySelectorAll('[data-platform-choice]').forEach((button) => {
+  button.addEventListener('click', () => showScreen(button.dataset.platformChoice === 'makers' ? 'm1' : 1));
+});
 
 /**
  * 按 Token 的证书权限决定要不要把微信证书上传摆出来。
@@ -77,8 +103,13 @@ function applyCertificatePermission(access, hint) {
 
 async function readWechatMtlsFiles() {
   if ($('wechat-mtls-setup').hidden) return { certificate: '', privateKey: '' };
-  const certFile = $('wechatMtlsCertificate').files[0];
-  const keyFile = $('wechatMtlsPrivateKey').files[0];
+  return readPemPair($('wechatMtlsCertificate'), $('wechatMtlsPrivateKey'));
+}
+
+/** 读取并校验一对微信商户证书文件（两个平台的流程共用）。 */
+async function readPemPair(certInput, keyInput) {
+  const certFile = certInput.files[0];
+  const keyFile = keyInput.files[0];
   if (!certFile && !keyFile) return { certificate: '', privateKey: '' };
   if (!certFile || !keyFile) throw new Error('微信 mTLS 证书和私钥必须同时选择');
   if (certFile.size > 64 * 1024 || keyFile.size > 64 * 1024) {
@@ -98,6 +129,8 @@ async function readWechatMtlsFiles() {
 function confirmUpgrade(projectName, compatible) {
   const dialog = $('upgrade-dialog');
   const confirmButton = $('upgrade-confirm');
+  $('upgrade-title').textContent = '发现同名 Worker';
+  $('upgrade-preserve-note').textContent = '选择升级时只替换程序文件，原 D1、插件配置、支付通道、环境变量、Secrets、定时任务和访问路由全部保留。';
   $('upgrade-message').textContent = compatible
     ? `Cloudflare 账号中已经有名为 ${projectName} 的 EdgePay Worker。请确认它是不是你原来部署的版本。`
     : `Cloudflare 账号中已经有名为 ${projectName} 的 Worker，但没有识别到完整的 EdgePay 配置。为避免覆盖其他项目，请重新设置名称。`;
@@ -166,8 +199,11 @@ $('step1-next').addEventListener('click', async () => {
 
 document.querySelectorAll('[data-back]').forEach((btn) => {
   btn.addEventListener('click', () => {
-    const current = Number(document.querySelector('.screen.active').id.replace('screen-', ''));
-    showScreen(current - 1);
+    const current = document.querySelector('.screen.active').id.replace('screen-', '');
+    const step = Number(current.replace(/^m/u, ''));
+    // 两套流程的第一步都退回平台选择。
+    if (step <= 1) showScreen(0);
+    else showScreen(current.startsWith('m') ? `m${step - 1}` : step - 1);
   });
 });
 

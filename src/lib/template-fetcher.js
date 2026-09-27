@@ -130,6 +130,7 @@ export async function fetchCommercialRelease({
   githubToken = '',
   manifestSha256 = '',
   entitlements = [],
+  platform = 'cloudflare',
   fetchImpl = fetch,
 }) {
   if (!SHA_RE.test(String(sha ?? ''))) {
@@ -202,10 +203,24 @@ export async function fetchCommercialRelease({
     content: buildPaidPluginsModule(selected),
   });
 
+  // 7) EdgeOne Makers 运行时：只有 Makers 部署要，发行清单登记了才有（私有仓 CI 构建的版本没有）。
+  let makersRuntime = '';
+  if (platform === 'makers') {
+    if (!manifest.makers?.runtime) {
+      throw new DeployError('template_fetch', `当前发行版本 ${manifest.release ?? ''} 不含 EdgeOne Makers 运行时，暂时只能部署到 Cloudflare`, {
+        retryable: false,
+      });
+    }
+    const runtimeBytes = await get(manifest.makers.runtime);
+    await assertHash(manifest.makers.runtime, runtimeBytes, manifest.makers.runtime_sha256);
+    makersRuntime = decoder.decode(runtimeBytes);
+  }
+
   return {
     manifest,
     schemaText: decoder.decode(schemaBytes),
     sourceFiles,
+    makersRuntime,
     installed: selected.map((plugin) => ({ code: plugin.code, name: plugin.name, version: plugin.version })),
     unavailable,
   };

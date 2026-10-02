@@ -58,6 +58,16 @@ test('教程提供安卓监听端下载，且安装包随站点发布', async ()
   assert.ok(apk.length > 10_000, 'public 下必须存在安卓安装包');
 });
 
+test('教程提供 root 监听节点模块下载，且模块包随站点发布', async () => {
+  const guide = await readFile(new URL('../public/guide.html', import.meta.url), 'utf8');
+  assert.match(guide, /href="\/edgepay-node-module\.zip"/u, 'root 模块节必须给出模块下载链接');
+  // 模块在跑时 App 会完全安静，不说清楚的话用户会以为 App 坏了。
+  assert.match(guide, /App 会自动完全安静下来/u, '必须说明模块接管后 App 的行为');
+  const module = await readFile(new URL('../public/edgepay-node-module.zip', import.meta.url));
+  // 和 APK 同理：漏拷就是一个 404 的下载按钮。
+  assert.ok(module.length > 10_000, 'public 下必须存在 root 模块包');
+});
+
 test('Docker watcher 教程给出可直接粘贴的单条指令，要填的地方用中文标出来', async () => {
   const guide = await readFile(new URL('../public/guide.html', import.meta.url), 'utf8');
   const command = guide.match(/docker run -d --name payment-watcher[^<]*/u)?.[0];

@@ -144,21 +144,20 @@ docker compose logs -f --tail=100</code></pre>
 <li>进「配置」页，<strong>Worker HTTPS 地址</strong>填支付站地址（与 <code>PUBLIC_BASE_URL</code> 完全一致，结尾不带斜杠）。</li>
 <li>在「微信个人收款」里打开<strong>启用此平台</strong>，<strong>通道 ID</strong> 填上面那条通道的数字，<strong>SmsForwarder 密钥</strong>填后台该配置里的同一把。要同时收支付宝，就在「支付宝个人收款」里照样填一遍。</li>
 <li>打开「运行开关 → <strong>启用到账监听</strong>」。</li>
-<li>「后台保障」里按机型开启<strong>开机自启</strong>并把本应用加入<strong>电池优化白名单</strong>；一加 / OPPO（ColorOS）等国产系统还要在系统设置里关掉对本应用的<strong>后台冻结 / 自启限制</strong>，否则监听会被系统杀掉。</li>
+<li>「后台保障」里按机型开启<strong>开机自启</strong>、打开<strong>保持 CPU 唤醒</strong>，并把本应用加入<strong>电池优化白名单</strong>；一加 / OPPO（ColorOS）等国产系统还要在系统设置里关掉对本应用的<strong>后台冻结 / 自启限制</strong>，否则监听会被系统杀掉。</li>
 <li>到「测试工具」页点<strong>测试心跳</strong>确认能连通；「运行日志」里正常每 45 秒一条“心跳已发送”，上报或心跳失败时日志会直接写明原因（握手被拒、密钥不符、配置未解出等）。</li>
 </ol>
-<div class="notice"><strong>v1.4.0 起，掉线治理有三处改动，装完请确认两个开关。</strong>心跳改走独立线程，弱网下一次投递重试不会再把心跳拖死（这是过去“手机在正常收款、后台却显示掉线”的主因）；新增<strong>保持 CPU 唤醒</strong>开关（默认开，在「配置」页），深度待机会挂起 CPU、心跳随之停摆，光靠前台服务挡不住，这一项最有效；另有进程外看门狗，进程被系统回收后能自行拉回。请确认<strong>保持 CPU 唤醒</strong>已开启、本应用已加入<strong>电池优化白名单</strong>。</div>
 <div class="notice">App 里填的<strong>通道 ID</strong> 和 <strong>SmsForwarder 密钥</strong>必须和后台该插件配置完全一致，差一个空格都会被判为身份不符。密钥在支付后台“密钥管理”轮换后，手机端要同步改。</div>
 <h3>收款监听节点模块（手机已 root 时可选）</h3>
-<p>手机刷了 Magisk / KernelSU / APatch 的话，还可以再装一个<strong>收款监听节点</strong>模块。它是一个常驻的 root 守护进程，自己读通知、自己签名上报，<strong>完全不依赖 App 进程活着</strong>——系统杀后台、用户手滑“强行停止”、甚至把 App 卸载了，收款都照常确认。没 root 的手机用上面的 App 就够了，这一节可以跳过。</p>
+<p>手机已 root 时可用。模块是常驻的 root 守护进程，自己读通知并上报，不依赖 App 进程存活。没有 root 就用上面的 App。</p>
 <a class="dl-btn" href="/edgepay-node-module.zip" download>下载收款监听节点模块</a>
-<p class="dl-meta">当前版本 v0.1.0 · Magisk / KernelSU / KernelSU Next / APatch 通用 · 不含 App，与安装包各自更新。</p>
+<p class="dl-meta">当前版本 v0.1.0 · Magisk / KernelSU / KernelSU Next / APatch 通用 · 不含 App。</p>
 <ol class="fill-list">
 <li>在 root 管理器里刷入 zip，然后<strong>重启手机</strong>。</li>
-<li><strong>先跑一次自检。</strong>KernelSU / APatch 直接点开模块的 WebUI；Magisk 没有 WebUI，用终端执行 <code>su -c /data/adb/modules/edgepay_node/edgepay-node selftest</code>。自检会逐项检查抓取方式、唤醒锁、网络，并用一次真实签名心跳换回 <code>ready</code>——这一步通过，就说明地址、通道与密钥全对。</li>
-<li>填配置：KernelSU / APatch 在 WebUI 里填；<strong>Magisk 用户装上面那个 App，在它的「配置」页填</strong>，App 会把配置下发给模块（App 不需要 root 授权）。</li>
+<li>跑一次自检：KernelSU / APatch 点开模块的 WebUI；Magisk 用终端执行 <code>su -c /data/adb/modules/edgepay_node/edgepay-node selftest</code>。</li>
+<li>填配置：KernelSU / APatch 在 WebUI 里填；Magisk 装上面那个 App，在它的「配置」页填。App 里已有配置时会自动同步给模块。</li>
 </ol>
-<div class="notice"><strong>模块在跑的时候，App 会自动完全安静下来</strong>——不再自己抓通知、不发心跳，连常驻通知也会收起，主页改成显示模块状态。这是有意的：两边同时上报会重复投递，还会在支付站留下两条在线记录，其中一条迟早变成假的掉线告警。停用或卸载模块后，App 会自动接回来。<br>模块的配置存在 <code>/data/adb/edgepay/</code>（任何 App 都读不到），<strong>卸载模块会连同密钥一起删除</strong>；需要留底请先在 WebUI 里导出。</div>
+<div class="notice">模块运行时 App 停止自行监听并收起常驻通知，主页显示模块状态；停用或卸载模块后 App 自动接回。模块配置存在 <code>/data/adb/edgepay/</code>，卸载模块时一并删除，需要留底先在 WebUI 导出。</div>
 <p>也可以用第三方通知转发工具（如 SmsForwarder）：它们说同一套协议，把通知地址 <code>/api/pay/{通道ID}/notify</code> 和同一把密钥填进去即可，但需自行处理保活与掉线排查。</p>
 
 <h3>应用宝协议监听（付费插件 <code>yyb_receipt</code>）</h3>
@@ -173,7 +172,7 @@ docker compose logs -f --tail=100</code></pre>
   用浏览器打开上面的链接，用要收款的那个微信扫码并确认
 =================================================</code></pre>
 <p>登录态保存在 Watcher 的数据卷内，重启会复用。它每 15 秒检查支付站的待支付订单，有单时才查「收款小账本」流水、按金额匹配后上报——上报走 Watcher 通道通知路径（用传输密钥验签、支付站 D1 去重），不借用微信个人通知通道，也不需要短信密钥。</p>
-<div class="notice"><strong>掉登录会自动暂停通道、重登自动恢复。</strong>登录失效或还没扫码时，这条通道会像安卓监听离线一样被支付站自动暂停（约 2 分钟）；重新扫码登录后自动恢复，无需人工开关通道。后台「渠道通知」配好推送后，掉线/恢复会主动提醒。</div>
+<div class="notice"><strong>掉登录会自动暂停通道、重登自动恢复。</strong>登录失效或还没扫码时，这条通道会被支付站自动暂停（约 2 分钟）；重新扫码登录后自动恢复，无需人工开关通道。后台「渠道通知」配好推送后，掉线/恢复会主动提醒。</div>
 
 <h3>两个微信一起收款</h3>
 <p>一个微信收商业单、另一个微信收个人单时，在「插件配置」里点微信个人收款监听那行的<strong>复制</strong>：填写便于区分的名称，勾选“同时新建通道”，就会多出一个副本（编码形如 <code>wxpay_receipt~2</code>）和它自己的一条通道。</p>

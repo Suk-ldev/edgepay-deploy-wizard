@@ -2,5 +2,5 @@
   "version": "v0.2.1",
   "versionCode": 3,
   "zipUrl": "https://deploy.imsuk.cn/edgepay-node-module.zip",
-  "changelog": "https://deploy.imsuk.cn/guide.html"
+  "changelog": "https://deploy.imsuk.cn/edgepay-node-changelog.txt"
 }

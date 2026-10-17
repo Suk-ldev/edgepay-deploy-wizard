@@ -34,7 +34,7 @@ TEMPLATE_VERSION = "2.1.24"
 TEMPLATE_MANIFEST_SHA256 = "74f2d27a27e487a86b3e6f9421a0f735e08b912452a29deecc7dc49d3f627e44"
 # 安卓监听端最新版本（APP APK 与 root 模块 zip），/api/watcher-version 读这里。
 # 上架新包时与 guide.html 的"当前版本"文案一起手动推进。
-WATCHER_APP_VERSION = "1.4.2"
+WATCHER_APP_VERSION = "1.4.3"
 WATCHER_MODULE_VERSION = "0.2.0"
 
 # 发行仓库是私有的，GITHUB_TOKEN 是部署前置条件（不是限额扩容项）：

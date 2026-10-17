@@ -9,8 +9,28 @@ import { handleMakersCheckProject, handleMakersDeploy, handleMakersVerifyToken }
 // Static Assets canonicalizes /guide.html to /guide; both paths must use fresh content.
 const NO_STORE_ASSETS = new Set(['/', '/index.html', '/wizard.js', '/makers-wizard.js', '/wizard.css', '/guide', '/guide.html', '/guide.css', '/guide.js']);
 
+// 模块管理器（KernelSU / APatch / Magisk）拉 update.json 和 changelog 的超时很短，
+// 且这两个文件直接呈现在更新 UI 上——content-type 必须明确（changelog 要纯文本，
+// 给 HTML 会被当成解析失败报 timeout），响应头加上边缘缓存，重复拉取从最近的
+// POP 直接回，不再受单次请求抖动影响。
+const MODULE_UPDATE_ASSETS = new Map([
+  ['/edgepay-node-update.json', 'application/json; charset=utf-8'],
+  ['/edgepay-node-changelog.txt', 'text/plain; charset=utf-8'],
+]);
+
 async function serveAsset(request, env, pathname) {
   const response = await env.ASSETS.fetch(request);
+  if (MODULE_UPDATE_ASSETS.has(pathname)) {
+    const headers = new Headers(response.headers);
+    headers.set('Content-Type', MODULE_UPDATE_ASSETS.get(pathname));
+    headers.set('Cache-Control', 'public, max-age=300, s-maxage=86400');
+    headers.set('Access-Control-Allow-Origin', '*');
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
   if (!NO_STORE_ASSETS.has(pathname)) return response;
   const headers = new Headers(response.headers);
   headers.set('Cache-Control', 'no-store');

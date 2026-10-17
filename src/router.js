@@ -3,6 +3,7 @@ import { handleVerifyToken } from './verify-token-handler.js';
 import { handleVerifyLicense } from './verify-license-handler.js';
 import { handleCheckProject } from './check-project-handler.js';
 import { handleLatestVersion } from './latest-version-handler.js';
+import { handleWatcherVersion } from './watcher-version-handler.js';
 import { handleMakersCheckProject, handleMakersDeploy, handleMakersVerifyToken } from './makers-handlers.js';
 
 // Static Assets canonicalizes /guide.html to /guide; both paths must use fresh content.
@@ -44,6 +45,9 @@ export async function route(request, env) {
   }
   if (request.method === 'GET' && url.pathname === '/api/latest-version') {
     return handleLatestVersion(env);
+  }
+  if (request.method === 'GET' && url.pathname === '/api/watcher-version') {
+    return handleWatcherVersion(env);
   }
   if (request.method === 'POST' && url.pathname === '/api/makers/verify-token') {
     return handleMakersVerifyToken(request);

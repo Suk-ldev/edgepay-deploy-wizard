@@ -28,10 +28,10 @@ TEMPLATE_OWNER = "Suk-ldev"
 # COMMERCIAL_BUILD.json）。公开源码仓库不含付费插件，也构建不出可部署的 Worker。
 TEMPLATE_REPO = "edgepay-payment-dist"
 # 锁定的发行 commit，不跟分支自动漂移；升级发行版本时手动改这三个值。
-TEMPLATE_COMMIT_SHA = "9cab0c23ce54f4598ff64ef3434cfa6fb45e7acf"
-TEMPLATE_VERSION = "2.1.24"
+TEMPLATE_COMMIT_SHA = "778acd696efebf236ac72169da8318387f6065d8"
+TEMPLATE_VERSION = "2.1.26"
 # 构建清单的 SHA-256。清单内再记录每个产物文件的哈希，钉住它即锁住整次发行。
-TEMPLATE_MANIFEST_SHA256 = "74f2d27a27e487a86b3e6f9421a0f735e08b912452a29deecc7dc49d3f627e44"
+TEMPLATE_MANIFEST_SHA256 = "4ec9088dc1be043ff62ee0aec96a49e2238779900c40d8a51bad31212285dd7a"
 # 安卓监听端最新版本（APP APK 与 root 模块 zip），/api/watcher-version 读这里。
 # 上架新包时与 guide.html 的"当前版本"文案一起手动推进。
 WATCHER_APP_VERSION = "1.4.4"
